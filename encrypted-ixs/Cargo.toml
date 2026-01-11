@@ -1,0 +1,18 @@
+[package]
+name = "encrypted_ixs"
+version = "0.1.0"
+description = "Encrypted instructions for Dusk Exchange using Arcis MPC"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "encrypted_ixs"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+mpc = []
+
+[dependencies]
+arcis = "0.3.0"

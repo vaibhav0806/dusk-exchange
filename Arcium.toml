@@ -1,0 +1,15 @@
+[arcium]
+# Arcium configuration for Dusk Exchange
+
+[cluster]
+# Use devnet cluster for development
+# Get your cluster offset from: https://docs.arcium.com/developers
+cluster_offset = 0  # Update with your assigned cluster offset
+
+[mxe]
+# MXE program configuration
+program_name = "encrypted_ixs"
+
+[build]
+# Build configuration
+target = "sbf-solana-solana"
