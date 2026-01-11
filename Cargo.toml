@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "programs/*",
-    # "encrypted-ixs"  # Temporarily excluded - has arcis dependency conflict
+    # "encrypted-ixs",  # Temporarily excluded - needs arcis-imports which has version conflicts
 ]
 resolver = "2"
 

@@ -110,11 +110,21 @@ programs/dusk_exchange/src/
 
 ---
 
-### Phase 2: Arcium Integration (Days 4-7)
+### Phase 2: Arcium Integration (Days 4-7) 🔄 IN PROGRESS
 
 **Goal:** Encrypted orderbook and order placement via Arcium MPC
 
+**Status:** Encrypted circuits written, SDK integration blocked by version conflicts
+
+#### Known Issue
+The `arcium-anchor@0.5.4` has a conflict with Anchor 0.32's `#[program]` macro.
+Options:
+1. Use `arcium localnet` which handles version alignment automatically
+2. Wait for Arcium to release a compatible SDK version
+3. Build the MXE program separately and integrate via CPI
+
 #### Tasks
+- [x] Write encrypted orderbook circuits (encrypted-ixs/src/lib.rs)
 - [ ] Set up Arcium testnet access
   - [ ] Register for cluster access at [arcium.com/testnet](https://arcium.com/testnet)
   - [ ] Get cluster offset assignment

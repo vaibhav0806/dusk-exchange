@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
-
-// Arcium integration - uncomment when connecting to testnet
-// use arcium_anchor::init_comp_def;
+// Arcium prelude - commented out temporarily to avoid macro conflicts
+// Will be enabled when implementing queue_computation CPIs
+// use arcium_anchor::prelude::*;
 
 pub mod state;
 pub mod instructions;
@@ -12,14 +12,11 @@ use instructions::*;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
-/// Computation definition IDs for Arcium MPC operations
-/// These will be used when integrating with Arcium testnet
-#[allow(dead_code)]
-pub const ADD_ORDER_COMP_DEF_OFFSET: u64 = 0;
-#[allow(dead_code)]
-pub const REMOVE_ORDER_COMP_DEF_OFFSET: u64 = 1;
-#[allow(dead_code)]
-pub const MATCH_BOOK_COMP_DEF_OFFSET: u64 = 2;
+/// Computation definition offsets for Arcium MPC operations
+/// Each encrypted function needs a unique offset
+pub const ADD_ORDER_COMP_DEF_OFFSET: u8 = 0;
+pub const REMOVE_ORDER_COMP_DEF_OFFSET: u8 = 1;
+pub const MATCH_BOOK_COMP_DEF_OFFSET: u8 = 2;
 
 #[program]
 pub mod dusk_exchange {
