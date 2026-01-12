@@ -46,43 +46,41 @@ export const TradeHistory: FC<TradeHistoryProps> = ({
   };
 
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden">
+    <div className="card overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border-subtle">
-        <h2 className="font-display text-base font-semibold text-text-primary">
-          Recent Trades
-        </h2>
+      <div className="panel-header">
+        <h2 className="panel-title">Recent Trades</h2>
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-3 gap-2 px-5 py-2.5 bg-surface-elevated border-b border-border-subtle">
-        <span className="table-header">Price ({quoteSymbol})</span>
-        <span className="table-header text-right">Size ({baseSymbol})</span>
+      <div className="grid grid-cols-3 gap-2 px-4 py-2 bg-surface-elevated border-b border-border-subtle">
+        <span className="table-header">Price</span>
+        <span className="table-header text-right">Size</span>
         <span className="table-header text-right">Time</span>
       </div>
 
       {/* Trades List */}
-      <div className="max-h-[220px] overflow-y-auto">
+      <div className="max-h-[200px] overflow-y-auto">
         {trades.map((trade, index) => (
           <motion.div
             key={trade.id}
-            initial={{ opacity: 0, x: -8 }}
+            initial={{ opacity: 0, x: -4 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.02, duration: 0.2 }}
-            className="grid grid-cols-3 gap-2 px-5 py-2 hover:bg-white/[0.02] transition-colors"
+            transition={{ delay: index * 0.015, duration: 0.15 }}
+            className="grid grid-cols-3 gap-2 px-4 py-1.5 data-row"
           >
             <span
               className={cn(
-                "font-mono text-sm tabular-nums font-medium",
+                "font-mono text-xs tabular-nums font-medium",
                 trade.side === "buy" ? "text-success" : "text-danger"
               )}
             >
               {formatNumber(trade.price, 2)}
             </span>
-            <span className="font-mono text-sm tabular-nums text-text-secondary text-right">
+            <span className="font-mono text-xs tabular-nums text-text-secondary text-right">
               {formatNumber(trade.amount, 4)}
             </span>
-            <span className="font-mono text-xs tabular-nums text-text-muted text-right">
+            <span className="font-mono text-[10px] tabular-nums text-text-muted text-right">
               {formatTime(trade.timestamp)}
             </span>
           </motion.div>

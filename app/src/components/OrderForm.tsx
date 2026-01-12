@@ -2,7 +2,7 @@
 
 import { FC, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Shield, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { Lock, TrendingUp, TrendingDown, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrders, useUserPosition } from "@/hooks";
@@ -64,58 +64,56 @@ export const OrderForm: FC<OrderFormProps> = ({
   };
 
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden">
+    <div className="card overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border-subtle">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-semibold text-text-primary">
-            Place Order
-          </h2>
-          <div className="badge badge-accent flex items-center gap-1.5">
-            <Shield className="h-3 w-3" />
-            <span>Encrypted</span>
-          </div>
+      <div className="panel-header">
+        <h2 className="panel-title">Place Order</h2>
+        <div className="badge badge-accent flex items-center gap-1">
+          <Lock className="h-2.5 w-2.5" />
+          <span>Private</span>
         </div>
       </div>
 
-      <div className="p-5 space-y-5">
+      <div className="p-4 space-y-4">
         {/* Buy/Sell Toggle */}
-        <div className="relative flex p-1 bg-surface-elevated rounded-xl border border-border-subtle">
+        <div className="relative flex p-0.5 bg-surface-elevated rounded-lg">
           <motion.div
-            className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg"
+            className="absolute top-0.5 bottom-0.5 w-[calc(50%-2px)] rounded-md"
             animate={{
-              x: isBuy ? 0 : "calc(100% + 4px)",
-              backgroundColor: isBuy ? "hsl(145 63% 49% / 0.15)" : "hsl(0 84% 60% / 0.15)",
+              x: isBuy ? 0 : "calc(100% + 2px)",
+              backgroundColor: isBuy
+                ? "hsl(152 60% 48% / 0.15)"
+                : "hsl(0 72% 58% / 0.15)",
             }}
-            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            transition={{ type: "spring", stiffness: 500, damping: 35 }}
           />
           <button
             onClick={() => setSide("buy")}
             className={cn(
-              "relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-display font-medium text-sm transition-colors",
+              "relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md font-medium text-sm transition-colors",
               isBuy ? "text-success" : "text-text-tertiary hover:text-text-secondary"
             )}
           >
-            <TrendingUp className="h-4 w-4" />
+            <TrendingUp className="h-3.5 w-3.5" />
             Buy
           </button>
           <button
             onClick={() => setSide("sell")}
             className={cn(
-              "relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-display font-medium text-sm transition-colors",
+              "relative z-10 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md font-medium text-sm transition-colors",
               !isBuy ? "text-danger" : "text-text-tertiary hover:text-text-secondary"
             )}
           >
-            <TrendingDown className="h-4 w-4" />
+            <TrendingDown className="h-3.5 w-3.5" />
             Sell
           </button>
         </div>
 
         {/* Price Input */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label className="flex items-center justify-between">
-            <span className="text-sm font-medium text-text-secondary">Price</span>
-            <span className="font-mono text-xs text-text-muted">{quoteSymbol}</span>
+            <span className="text-xs font-medium text-text-secondary">Price</span>
+            <span className="font-mono text-[10px] text-text-muted">{quoteSymbol}</span>
           </label>
           <div className="relative">
             <input
@@ -123,10 +121,10 @@ export const OrderForm: FC<OrderFormProps> = ({
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="0.00"
-              className="w-full h-12 px-4 pr-16 rounded-xl input-premium font-mono text-lg text-text-primary placeholder:text-text-muted"
+              className="w-full h-10 px-3 pr-14 rounded-lg input-field font-mono text-sm text-text-primary placeholder:text-text-muted"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <span className="font-mono text-xs text-text-tertiary px-2 py-1 rounded bg-surface-elevated border border-border-subtle">
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+              <span className="font-mono text-[10px] text-text-tertiary px-1.5 py-0.5 rounded bg-surface-elevated">
                 {quoteSymbol}
               </span>
             </div>
@@ -134,11 +132,11 @@ export const OrderForm: FC<OrderFormProps> = ({
         </div>
 
         {/* Amount Input */}
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <label className="flex items-center justify-between">
-            <span className="text-sm font-medium text-text-secondary">Amount</span>
-            <span className="font-mono text-xs text-text-muted">
-              Avail: {formatNumber(isBuy ? quoteBalance : baseBalance, 4)} {isBuy ? quoteSymbol : baseSymbol}
+            <span className="text-xs font-medium text-text-secondary">Amount</span>
+            <span className="font-mono text-[10px] text-text-muted">
+              Avail: {formatNumber(isBuy ? quoteBalance : baseBalance, 2)} {isBuy ? quoteSymbol : baseSymbol}
             </span>
           </label>
           <div className="relative">
@@ -147,10 +145,10 @@ export const OrderForm: FC<OrderFormProps> = ({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.0000"
-              className="w-full h-12 px-4 pr-16 rounded-xl input-premium font-mono text-lg text-text-primary placeholder:text-text-muted"
+              className="w-full h-10 px-3 pr-14 rounded-lg input-field font-mono text-sm text-text-primary placeholder:text-text-muted"
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <span className="font-mono text-xs text-text-tertiary px-2 py-1 rounded bg-surface-elevated border border-border-subtle">
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+              <span className="font-mono text-[10px] text-text-tertiary px-1.5 py-0.5 rounded bg-surface-elevated">
                 {baseSymbol}
               </span>
             </div>
@@ -158,12 +156,12 @@ export const OrderForm: FC<OrderFormProps> = ({
         </div>
 
         {/* Percentage Buttons */}
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {[0.25, 0.5, 0.75, 1].map((pct) => (
             <button
               key={pct}
               onClick={() => handlePercentageClick(pct)}
-              className="flex-1 py-2 rounded-lg bg-surface-elevated border border-border-subtle font-mono text-xs text-text-secondary hover:text-accent hover:border-accent/30 transition-all duration-200"
+              className="flex-1 py-1.5 rounded-md bg-surface-elevated border border-border-subtle font-mono text-[10px] text-text-secondary hover:text-accent hover:border-accent/30 transition-all"
             >
               {pct * 100}%
             </button>
@@ -171,14 +169,14 @@ export const OrderForm: FC<OrderFormProps> = ({
         </div>
 
         {/* Total */}
-        <div className="p-4 rounded-xl bg-surface-elevated border border-border-subtle">
+        <div className="p-3 rounded-lg bg-surface-elevated border border-border-subtle">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-text-secondary">Total</span>
+            <span className="text-xs text-text-secondary">Total</span>
             <div className="text-right">
-              <span className="font-mono text-lg font-semibold text-text-primary">
+              <span className="font-mono text-base font-semibold text-text-primary">
                 {formatNumber(total, 2)}
               </span>
-              <span className="ml-1.5 font-mono text-sm text-text-tertiary">
+              <span className="ml-1 font-mono text-xs text-text-tertiary">
                 {quoteSymbol}
               </span>
             </div>
@@ -190,27 +188,27 @@ export const OrderForm: FC<OrderFormProps> = ({
           {!connected ? (
             <motion.div
               key="connect"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="flex items-center gap-3 p-4 rounded-xl bg-surface-elevated border border-border-subtle"
+              exit={{ opacity: 0, y: -4 }}
+              className="flex items-center gap-2.5 p-3 rounded-lg bg-surface-elevated border border-border-subtle"
             >
-              <AlertCircle className="h-5 w-5 text-text-tertiary" />
-              <span className="text-sm text-text-secondary">
+              <AlertCircle className="h-4 w-4 text-text-tertiary" />
+              <span className="text-xs text-text-secondary">
                 Connect wallet to trade
               </span>
             </motion.div>
           ) : (
             <motion.button
               key="submit"
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              exit={{ opacity: 0, y: -4 }}
               onClick={handleSubmit}
               disabled={!price || !amount || isSubmitting}
               className={cn(
-                "w-full h-12 rounded-xl font-display font-semibold text-sm",
-                "transition-all duration-200",
+                "w-full h-10 rounded-lg font-semibold text-sm",
+                "transition-all duration-150",
                 "disabled:opacity-50 disabled:cursor-not-allowed",
                 isBuy
                   ? "bg-gradient-to-r from-success to-success-muted text-white hover:shadow-glow-success"
@@ -219,12 +217,12 @@ export const OrderForm: FC<OrderFormProps> = ({
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Encrypting...
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
-                  <Shield className="h-4 w-4" />
+                  <Lock className="h-3.5 w-3.5" />
                   {isBuy ? "Buy" : "Sell"} {baseSymbol}
                 </span>
               )}
@@ -236,32 +234,32 @@ export const OrderForm: FC<OrderFormProps> = ({
         <AnimatePresence>
           {successMessage && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="flex items-center gap-2 p-3 rounded-xl bg-success-subtle border border-success/20"
+              exit={{ opacity: 0, y: -4 }}
+              className="flex items-center gap-2 p-2.5 rounded-lg bg-success-subtle border border-success/20"
             >
-              <CheckCircle className="h-4 w-4 text-success" />
-              <span className="text-sm text-success">{successMessage}</span>
+              <CheckCircle className="h-3.5 w-3.5 text-success" />
+              <span className="text-xs text-success">{successMessage}</span>
             </motion.div>
           )}
           {orderError && (
             <motion.div
-              initial={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              className="flex items-center gap-2 p-3 rounded-xl bg-danger-subtle border border-danger/20"
+              exit={{ opacity: 0, y: -4 }}
+              className="flex items-center gap-2 p-2.5 rounded-lg bg-danger-subtle border border-danger/20"
             >
-              <AlertCircle className="h-4 w-4 text-danger" />
-              <span className="text-sm text-danger">{orderError}</span>
+              <AlertCircle className="h-3.5 w-3.5 text-danger" />
+              <span className="text-xs text-danger">{orderError}</span>
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Privacy Notice */}
         <div className="pt-3 border-t border-border-subtle">
-          <p className="text-xs text-text-muted leading-relaxed">
-            Orders are encrypted using Arcium MPC. Price and amount remain hidden from attackers until execution.
+          <p className="text-[10px] text-text-muted leading-relaxed">
+            Orders encrypted via Arcium MPC. Price and amount hidden until execution.
           </p>
         </div>
       </div>

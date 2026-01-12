@@ -2,7 +2,7 @@
 
 import { FC, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { X, Shield, Clock, ChevronDown, Loader2, Inbox } from "lucide-react";
+import { X, Lock, Clock, ChevronDown, Loader2, Inbox } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrders } from "@/hooks";
@@ -41,36 +41,30 @@ export const OpenOrders: FC<OpenOrdersProps> = ({
   };
 
   return (
-    <div className="glass-panel rounded-2xl overflow-hidden">
+    <div className="card overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-border-subtle">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-semibold text-text-primary">
-            Open Orders
-          </h2>
-          <span className="badge">
-            {orders.length} Active
-          </span>
-        </div>
+      <div className="panel-header">
+        <h2 className="panel-title">Open Orders</h2>
+        <span className="badge">{orders.length} Active</span>
       </div>
 
       {/* Orders List */}
-      <div className="max-h-[280px] overflow-y-auto">
+      <div className="max-h-[260px] overflow-y-auto">
         {!connected ? (
-          <div className="p-8 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-surface-elevated border border-border-subtle mb-3">
-              <Shield className="h-5 w-5 text-text-muted" />
+          <div className="p-6 text-center">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-surface-elevated border border-border-subtle mb-2.5">
+              <Lock className="h-4 w-4 text-text-muted" />
             </div>
-            <p className="text-sm text-text-secondary">
+            <p className="text-xs text-text-secondary">
               Connect wallet to view orders
             </p>
           </div>
         ) : orders.length === 0 ? (
-          <div className="p-8 text-center">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-surface-elevated border border-border-subtle mb-3">
-              <Inbox className="h-5 w-5 text-text-muted" />
+          <div className="p-6 text-center">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-surface-elevated border border-border-subtle mb-2.5">
+              <Inbox className="h-4 w-4 text-text-muted" />
             </div>
-            <p className="text-sm text-text-secondary">No open orders</p>
+            <p className="text-xs text-text-secondary">No open orders</p>
           </div>
         ) : (
           <div className="divide-y divide-border-subtle">
@@ -78,16 +72,15 @@ export const OpenOrders: FC<OpenOrdersProps> = ({
               {orders.map((order, index) => (
                 <motion.div
                   key={order.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ delay: index * 0.03 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ delay: index * 0.02 }}
                   className="group"
                 >
                   <div
                     className={cn(
-                      "px-5 py-3 cursor-pointer transition-colors",
-                      "hover:bg-white/[0.02]",
+                      "px-4 py-2.5 cursor-pointer transition-colors data-row",
                       expandedOrder === order.id && "bg-surface-elevated"
                     )}
                     onClick={() =>
@@ -96,7 +89,7 @@ export const OpenOrders: FC<OpenOrdersProps> = ({
                   >
                     {/* Main Row */}
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5">
                         {/* Side Badge */}
                         <div
                           className={cn(
@@ -109,18 +102,18 @@ export const OpenOrders: FC<OpenOrdersProps> = ({
 
                         {/* Price & Amount - Encrypted */}
                         <div>
-                          <div className="flex items-center gap-2">
-                            <Shield className="h-3 w-3 text-accent" />
-                            <span className="font-mono text-sm text-text-secondary encrypted-shimmer px-1">
-                              •••.••
+                          <div className="flex items-center gap-1.5">
+                            <Lock className="h-2.5 w-2.5 text-accent" />
+                            <span className="font-mono text-xs text-text-secondary encrypted-display">
+                              ***.**
                             </span>
-                            <span className="text-text-muted">×</span>
-                            <span className="font-mono text-sm text-text-secondary encrypted-shimmer px-1">
-                              •.••••
+                            <span className="text-text-muted text-[10px]">x</span>
+                            <span className="font-mono text-xs text-text-secondary encrypted-display">
+                              *.****
                             </span>
                           </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock className="h-3 w-3 text-text-muted" />
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Clock className="h-2.5 w-2.5 text-text-muted" />
                             <span className="font-mono text-[10px] text-text-muted">
                               {formatTime(order.timestamp)}
                             </span>
@@ -129,15 +122,15 @@ export const OpenOrders: FC<OpenOrdersProps> = ({
                       </div>
 
                       {/* Status & Expand */}
-                      <div className="flex items-center gap-3">
-                        <div className="badge badge-accent flex items-center gap-1.5">
-                          <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-                          <span>Encrypted</span>
+                      <div className="flex items-center gap-2">
+                        <div className="badge badge-accent flex items-center gap-1">
+                          <span className="status-dot bg-accent status-dot-pulse" />
+                          <span>Private</span>
                         </div>
 
                         <ChevronDown
                           className={cn(
-                            "h-4 w-4 text-text-muted transition-transform",
+                            "h-3.5 w-3.5 text-text-muted transition-transform",
                             expandedOrder === order.id && "rotate-180"
                           )}
                         />
@@ -151,21 +144,21 @@ export const OpenOrders: FC<OpenOrdersProps> = ({
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: "auto", opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
+                          transition={{ duration: 0.15 }}
                           className="overflow-hidden"
                         >
-                          <div className="pt-4 mt-4 border-t border-border-subtle">
-                            <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="pt-3 mt-3 border-t border-border-subtle">
+                            <div className="grid grid-cols-2 gap-3 mb-3">
                               <div>
                                 <span className="table-header">Order ID</span>
-                                <p className="font-mono text-xs text-text-secondary mt-1">
+                                <p className="font-mono text-[10px] text-text-secondary mt-0.5 truncate">
                                   {order.id}
                                 </p>
                               </div>
                               <div>
                                 <span className="table-header">Total Value</span>
-                                <p className="font-mono text-xs text-text-secondary mt-1">
-                                  <span className="text-accent">Encrypted</span>
+                                <p className="font-mono text-[10px] text-accent mt-0.5">
+                                  Encrypted
                                 </p>
                               </div>
                             </div>
@@ -175,16 +168,16 @@ export const OpenOrders: FC<OpenOrdersProps> = ({
                                 handleCancel(order.id);
                               }}
                               disabled={cancellingId === order.id}
-                              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-danger-subtle border border-danger/20 text-danger text-sm font-medium hover:bg-danger/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-md bg-danger-subtle border border-danger/20 text-danger text-xs font-medium hover:bg-danger/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               {cancellingId === order.id ? (
                                 <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <Loader2 className="h-3 w-3 animate-spin" />
                                   Cancelling...
                                 </>
                               ) : (
                                 <>
-                                  <X className="h-4 w-4" />
+                                  <X className="h-3 w-3" />
                                   Cancel Order
                                 </>
                               )}
