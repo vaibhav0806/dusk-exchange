@@ -345,12 +345,6 @@ if (result.matched) {
 - [ ] Demo video
 - [ ] Mainnet deployment
 
-## Hackathon
-
-Built for the [Solana Privacy Hackathon](https://solana.com/privacyhack) (Jan 12 - Feb 1, 2026)
-
-**Target Bounty**: Arcium $10,000 "End-to-End Private DeFi"
-
 ## Resources
 
 - [Arcium Documentation](https://docs.arcium.com)
@@ -365,7 +359,6 @@ MIT
 ## Acknowledgments
 
 - [Arcium](https://arcium.com) for MPC infrastructure
-- [Solana Foundation](https://solana.com) for hosting the hackathon
 
 ---
 
