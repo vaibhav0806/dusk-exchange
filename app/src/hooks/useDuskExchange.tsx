@@ -56,6 +56,7 @@ interface DuskExchangeContextType {
   isInitialized: boolean;
   isLoading: boolean;
   error: string | null;
+  marketStatus: string; // Status message for UI
 
   // Market data
   currentMarket: Market | null;
@@ -74,6 +75,7 @@ interface DuskExchangeContextType {
   withdraw: (amount: number, isBase: boolean) => Promise<string>;
   placeOrder: (side: "buy" | "sell", price: number, amount: number) => Promise<string>;
   cancelOrder: (orderId: string) => Promise<string>;
+  requestAirdrop: () => Promise<string>;
 }
 
 const DuskExchangeContext = createContext<DuskExchangeContextType | null>(null);
@@ -107,6 +109,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [marketStatus, setMarketStatus] = useState<string>("Connecting...");
   const [currentMarket, setCurrentMarket] = useState<Market | null>(null);
   const [markets, setMarkets] = useState<Market[]>([]);
   const [userPosition, setUserPosition] = useState<UserPosition | null>(null);
@@ -172,6 +175,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
     try {
       setIsLoading(true);
       setError(null);
+      setMarketStatus("Connecting to localnet...");
 
       const marketPda = deriveMarketPda(marketId);
 
@@ -195,23 +199,24 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
           
           setCurrentMarket(market);
           setMarkets([market]);
+          setMarketStatus(`✓ Market loaded (${marketPda.toString().slice(0, 8)}...)`);
           console.log("Market loaded from chain:", market.pubkey.toString());
+          console.log("Base mint:", market.baseMint.toString());
+          console.log("Quote mint:", market.quoteMint.toString());
         } catch (fetchErr) {
-          console.log("Market not found on-chain, using defaults");
+          console.log("Market not found on-chain");
           setCurrentMarket(null);
+          setMarketStatus("⚠ Market not found - run tests first");
         }
       } else {
-        // No program available, use mock data
-        const accountInfo = await connection.getAccountInfo(marketPda);
-        if (accountInfo) {
-          // Market exists but we can't parse without program
-          console.log("Market exists but program not available for parsing");
-        }
+        // No program available
         setCurrentMarket(null);
+        setMarketStatus("⚠ Connect wallet to load market");
       }
     } catch (err) {
       console.error("Error fetching market:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch market");
+      setMarketStatus("✗ Connection error");
     } finally {
       setIsLoading(false);
       setIsInitialized(true);
@@ -507,6 +512,40 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
     }
   }, [wallet.publicKey, wallet.signTransaction, userOrders]);
 
+  // Request airdrop (localnet only)
+  const requestAirdrop = useCallback(async (): Promise<string> => {
+    if (!wallet.publicKey) {
+      throw new Error("Wallet not connected");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log("Requesting airdrop for:", wallet.publicKey.toString());
+      
+      const signature = await connection.requestAirdrop(
+        wallet.publicKey,
+        2 * LAMPORTS_PER_SOL // 2 SOL
+      );
+      
+      await connection.confirmTransaction(signature, "confirmed");
+      console.log("Airdrop successful:", signature);
+      
+      // Refresh balances
+      await refreshUserPosition();
+      
+      return signature;
+    } catch (err) {
+      console.error("Airdrop error:", err);
+      const message = err instanceof Error ? err.message : "Airdrop failed";
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [connection, wallet.publicKey, refreshUserPosition]);
+
   // Initialize on mount and wallet change
   useEffect(() => {
     refreshMarket();
@@ -520,6 +559,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
     isInitialized,
     isLoading,
     error,
+    marketStatus,
     currentMarket,
     markets,
     userPosition,
@@ -532,6 +572,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
     withdraw,
     placeOrder,
     cancelOrder,
+    requestAirdrop,
   };
 
   return (

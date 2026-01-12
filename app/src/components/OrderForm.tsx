@@ -68,10 +68,19 @@ export const OrderForm: FC<OrderFormProps> = ({
       {/* Header */}
       <div className="panel-header">
         <h2 className="panel-title">Place Order</h2>
-        <div className="badge badge-accent flex items-center gap-1">
-          <Lock className="h-2.5 w-2.5" />
-          <span>Private</span>
+        <div className="badge badge-warning flex items-center gap-1">
+          <AlertCircle className="h-2.5 w-2.5" />
+          <span>Simulated</span>
         </div>
+      </div>
+      
+      {/* Simulation Warning */}
+      <div className="mx-4 mt-3 p-2.5 rounded-lg bg-warning/10 border border-warning/20">
+        <p className="text-[10px] text-warning leading-relaxed">
+          <strong>Demo Mode:</strong> Order placement is simulated. 
+          Real encrypted orders require Arcium MPC nodes which are not running.
+          Deposit/Withdraw are real on-chain transactions.
+        </p>
       </div>
 
       <div className="p-4 space-y-4">
