@@ -1,121 +1,58 @@
 //! Encrypted instructions for Dusk Exchange
 //!
 //! This module contains the Arcis MPC circuits for:
-//! - add_order: Insert an encrypted order into the orderbook
-//! - remove_order: Remove an order by ID
+//! - add_order: Insert an encrypted order, update best bid/ask
 //! - match_book: Find and match crossing orders
 //!
 //! Built using Arcium's Arcis framework for confidential computation.
 
 use arcis_imports::*;
 
-/// Maximum number of orders in the orderbook
-/// Keep this reasonable to limit MPC computation time
-pub const MAX_ORDERS: usize = 32;
-
-/// Price scaling factor (10^6 = 1 dollar)
-/// e.g., $100.50 = 100_500_000
-pub const PRICE_SCALE: u64 = 1_000_000;
-
 #[encrypted]
 mod orderbook {
-    use super::*;
+    use arcis_imports::*;
 
-    /// Represents a single order in the encrypted orderbook
-    /// Pubkeys are split into two u128 since Arcis encrypts primitives individually
-    #[derive(Copy, Clone, Default)]
+    /// Represents a single order
+    #[derive(Copy, Clone)]
     pub struct Order {
-        /// Price in scaled units (price * PRICE_SCALE)
         pub price: u64,
-        /// Amount in base token units
         pub amount: u64,
-        /// Lower 128 bits of owner pubkey
         pub owner_lo: u128,
-        /// Upper 128 bits of owner pubkey
         pub owner_hi: u128,
-        /// Unique order identifier
         pub order_id: u64,
-        /// true = buy order, false = sell order
-        pub side: bool,
-        /// Whether this order slot is active
-        pub is_active: bool,
+        pub side: bool, // true = buy, false = sell
     }
 
-    /// The encrypted orderbook state
-    #[derive(Copy, Clone, Default)]
+    /// The encrypted orderbook state - tracks best bid and ask
+    #[derive(Copy, Clone)]
     pub struct OrderBookState {
-        /// Best bid price (highest buy price)
         pub best_bid_price: u64,
-        /// Best bid amount
         pub best_bid_amount: u64,
-        /// Best bid owner (lower bits)
         pub best_bid_owner_lo: u128,
-        /// Best bid owner (upper bits)
         pub best_bid_owner_hi: u128,
-        /// Best bid order ID
         pub best_bid_id: u64,
 
-        /// Best ask price (lowest sell price)
         pub best_ask_price: u64,
-        /// Best ask amount
         pub best_ask_amount: u64,
-        /// Best ask owner (lower bits)
         pub best_ask_owner_lo: u128,
-        /// Best ask owner (upper bits)
         pub best_ask_owner_hi: u128,
-        /// Best ask order ID
         pub best_ask_id: u64,
 
-        /// Total number of active orders
         pub order_count: u64,
-
-        /// State nonce for tracking updates
-        pub nonce: u64,
     }
 
-    /// Result of a match operation - these fields are revealed
-    #[derive(Copy, Clone, Default)]
+    /// Result of a match operation - revealed after computation
+    #[derive(Copy, Clone)]
     pub struct MatchResult {
-        /// Whether a match was found
         pub matched: bool,
-        /// Maker order ID (the resting order)
         pub maker_order_id: u64,
-        /// Taker order ID (the crossing order)
         pub taker_order_id: u64,
-        /// Execution price (revealed)
         pub execution_price: u64,
-        /// Execution amount (revealed)
         pub execution_amount: u64,
-        /// Maker pubkey lower bits
         pub maker_lo: u128,
-        /// Maker pubkey upper bits
         pub maker_hi: u128,
-        /// Taker pubkey lower bits
         pub taker_lo: u128,
-        /// Taker pubkey upper bits
         pub taker_hi: u128,
-        /// Whether maker was buying
-        pub maker_is_buy: bool,
-    }
-
-    /// Initialize an empty orderbook state
-    #[instruction]
-    pub fn init_orderbook_state() -> Enc<Mxe, OrderBookState> {
-        let state = OrderBookState {
-            best_bid_price: 0,
-            best_bid_amount: 0,
-            best_bid_owner_lo: 0,
-            best_bid_owner_hi: 0,
-            best_bid_id: 0,
-            best_ask_price: u64::MAX, // Very high so any ask is better
-            best_ask_amount: 0,
-            best_ask_owner_lo: 0,
-            best_ask_owner_hi: 0,
-            best_ask_id: 0,
-            order_count: 0,
-            nonce: 0,
-        };
-        Enc::<Mxe, OrderBookState>::from_arcis(state)
     }
 
     /// Add a new order to the orderbook
@@ -123,161 +60,167 @@ mod orderbook {
     #[instruction]
     pub fn add_order(
         order: Enc<Shared, Order>,
-        state_ctxt: Enc<Mxe, &OrderBookState>,
+        state_ctxt: Enc<Mxe, OrderBookState>,
     ) -> Enc<Mxe, OrderBookState> {
         let new_order = order.to_arcis();
         let mut state = state_ctxt.to_arcis();
 
-        // Only process active orders
-        if new_order.is_active {
-            if new_order.side {
-                // Buy order - check if it's the best bid (highest price)
-                if new_order.price > state.best_bid_price {
-                    state.best_bid_price = new_order.price;
-                    state.best_bid_amount = new_order.amount;
-                    state.best_bid_owner_lo = new_order.owner_lo;
-                    state.best_bid_owner_hi = new_order.owner_hi;
-                    state.best_bid_id = new_order.order_id;
-                }
-            } else {
-                // Sell order - check if it's the best ask (lowest price)
-                if new_order.price < state.best_ask_price {
-                    state.best_ask_price = new_order.price;
-                    state.best_ask_amount = new_order.amount;
-                    state.best_ask_owner_lo = new_order.owner_lo;
-                    state.best_ask_owner_hi = new_order.owner_hi;
-                    state.best_ask_id = new_order.order_id;
-                }
+        if new_order.side {
+            // Buy order - update if better (higher price)
+            if new_order.price > state.best_bid_price {
+                state.best_bid_price = new_order.price;
+                state.best_bid_amount = new_order.amount;
+                state.best_bid_owner_lo = new_order.owner_lo;
+                state.best_bid_owner_hi = new_order.owner_hi;
+                state.best_bid_id = new_order.order_id;
             }
-            state.order_count += 1;
-            state.nonce += 1;
+        } else {
+            // Sell order - update if better (lower price)
+            // Note: For initial state, best_ask_price should be very high
+            if new_order.price < state.best_ask_price {
+                state.best_ask_price = new_order.price;
+                state.best_ask_amount = new_order.amount;
+                state.best_ask_owner_lo = new_order.owner_lo;
+                state.best_ask_owner_hi = new_order.owner_hi;
+                state.best_ask_id = new_order.order_id;
+            }
         }
+        state.order_count = state.order_count + 1;
 
         state_ctxt.owner.from_arcis(state)
     }
 
-    /// Remove an order from the orderbook by ID
-    /// Note: In a full implementation, we'd need to track all orders
-    /// For MVP, we only track best bid/ask
+    /// Remove/cancel an order from the orderbook
+    /// Only the order owner can cancel their order
     #[instruction]
     pub fn remove_order(
-        order_id: u64,
-        owner_lo: u128,
-        owner_hi: u128,
-        state_ctxt: Enc<Mxe, &OrderBookState>,
-    ) -> Enc<Mxe, OrderBookState> {
+        order_id: Enc<Shared, u64>,
+        owner_lo: Enc<Shared, u128>,
+        owner_hi: Enc<Shared, u128>,
+        state_ctxt: Enc<Mxe, OrderBookState>,
+    ) -> (Enc<Mxe, OrderBookState>, bool) {
+        let target_id = order_id.to_arcis();
+        let target_owner_lo = owner_lo.to_arcis();
+        let target_owner_hi = owner_hi.to_arcis();
         let mut state = state_ctxt.to_arcis();
+        let mut removed = false;
 
-        // Check if removing best bid
-        if state.best_bid_id == order_id
-            && state.best_bid_owner_lo == owner_lo
-            && state.best_bid_owner_hi == owner_hi
-        {
+        // Check if it's the best bid
+        let is_best_bid = state.best_bid_id == target_id;
+        let bid_owner_match_lo = state.best_bid_owner_lo == target_owner_lo;
+        let bid_owner_match_hi = state.best_bid_owner_hi == target_owner_hi;
+        let bid_owner_match = bid_owner_match_lo && bid_owner_match_hi;
+
+        if is_best_bid && bid_owner_match {
+            // Clear the best bid
             state.best_bid_price = 0;
             state.best_bid_amount = 0;
             state.best_bid_owner_lo = 0;
             state.best_bid_owner_hi = 0;
             state.best_bid_id = 0;
-            state.order_count = state.order_count.saturating_sub(1);
-            state.nonce += 1;
+            removed = true;
         }
 
-        // Check if removing best ask
-        if state.best_ask_id == order_id
-            && state.best_ask_owner_lo == owner_lo
-            && state.best_ask_owner_hi == owner_hi
-        {
-            state.best_ask_price = u64::MAX;
+        // Check if it's the best ask
+        let is_best_ask = state.best_ask_id == target_id;
+        let ask_owner_match_lo = state.best_ask_owner_lo == target_owner_lo;
+        let ask_owner_match_hi = state.best_ask_owner_hi == target_owner_hi;
+        let ask_owner_match = ask_owner_match_lo && ask_owner_match_hi;
+
+        if is_best_ask && ask_owner_match {
+            // Clear the best ask
+            state.best_ask_price = 18446744073709551615u64; // u64::MAX
             state.best_ask_amount = 0;
             state.best_ask_owner_lo = 0;
             state.best_ask_owner_hi = 0;
             state.best_ask_id = 0;
-            state.order_count = state.order_count.saturating_sub(1);
-            state.nonce += 1;
+            removed = true;
         }
 
-        state_ctxt.owner.from_arcis(state)
+        if removed {
+            state.order_count = state.order_count - 1;
+        }
+
+        (state_ctxt.owner.from_arcis(state), removed.reveal())
     }
 
     /// Match orders in the orderbook
     /// If best_bid.price >= best_ask.price, a match is found
-    /// Returns revealed execution details
     #[instruction]
     pub fn match_book(
-        state_ctxt: Enc<Mxe, &OrderBookState>,
+        state_ctxt: Enc<Mxe, OrderBookState>,
     ) -> (Enc<Mxe, OrderBookState>, MatchResult) {
         let mut state = state_ctxt.to_arcis();
-        let mut result = MatchResult::default();
 
-        // Check for crossing orders (bid.price >= ask.price)
-        let has_match = state.best_bid_price >= state.best_ask_price
-            && state.best_bid_amount > 0
-            && state.best_ask_amount > 0;
+        // Initialize result with no match
+        let mut result = MatchResult {
+            matched: false,
+            maker_order_id: 0,
+            taker_order_id: 0,
+            execution_price: 0,
+            execution_amount: 0,
+            maker_lo: 0,
+            maker_hi: 0,
+            taker_lo: 0,
+            taker_hi: 0,
+        };
+
+        // Check for crossing orders
+        let has_match = state.best_bid_price >= state.best_ask_price;
+        let has_liquidity = state.best_bid_amount > 0;
+        let has_ask = state.best_ask_amount > 0;
 
         // Self-trade prevention
-        let is_self_trade = state.best_bid_owner_lo == state.best_ask_owner_lo
-            && state.best_bid_owner_hi == state.best_ask_owner_hi;
+        let same_owner_lo = state.best_bid_owner_lo == state.best_ask_owner_lo;
+        let same_owner_hi = state.best_bid_owner_hi == state.best_ask_owner_hi;
+        let is_self_trade = same_owner_lo && same_owner_hi;
 
-        if has_match && !is_self_trade {
+        if has_match && has_liquidity && has_ask && !is_self_trade {
             // Calculate execution price (midpoint)
             let execution_price = (state.best_bid_price + state.best_ask_price) / 2;
 
             // Calculate execution amount (minimum of both)
-            let execution_amount = if state.best_bid_amount < state.best_ask_amount {
-                state.best_bid_amount
-            } else {
-                state.best_ask_amount
-            };
+            let mut execution_amount = state.best_bid_amount;
+            if state.best_ask_amount < execution_amount {
+                execution_amount = state.best_ask_amount;
+            }
 
-            // Populate result (these will be revealed)
+            // Set result
             result.matched = true;
-            result.maker_order_id = state.best_ask_id; // Ask was resting (maker)
-            result.taker_order_id = state.best_bid_id; // Bid crossed (taker)
+            result.maker_order_id = state.best_ask_id;
+            result.taker_order_id = state.best_bid_id;
             result.execution_price = execution_price;
             result.execution_amount = execution_amount;
             result.maker_lo = state.best_ask_owner_lo;
             result.maker_hi = state.best_ask_owner_hi;
             result.taker_lo = state.best_bid_owner_lo;
             result.taker_hi = state.best_bid_owner_hi;
-            result.maker_is_buy = false; // Maker was selling
 
-            // Update state - reduce amounts or clear if fully filled
-            if state.best_bid_amount <= execution_amount {
-                // Bid fully filled
+            // Update state - clear filled orders
+            let bid_remaining = state.best_bid_amount - execution_amount;
+            let ask_remaining = state.best_ask_amount - execution_amount;
+
+            if bid_remaining == 0 {
                 state.best_bid_price = 0;
                 state.best_bid_amount = 0;
                 state.best_bid_owner_lo = 0;
                 state.best_bid_owner_hi = 0;
                 state.best_bid_id = 0;
             } else {
-                state.best_bid_amount -= execution_amount;
+                state.best_bid_amount = bid_remaining;
             }
 
-            if state.best_ask_amount <= execution_amount {
-                // Ask fully filled
-                state.best_ask_price = u64::MAX;
+            if ask_remaining == 0 {
+                state.best_ask_price = 18446744073709551615u64; // u64::MAX
                 state.best_ask_amount = 0;
                 state.best_ask_owner_lo = 0;
                 state.best_ask_owner_hi = 0;
                 state.best_ask_id = 0;
             } else {
-                state.best_ask_amount -= execution_amount;
+                state.best_ask_amount = ask_remaining;
             }
-
-            state.nonce += 1;
         }
 
         (state_ctxt.owner.from_arcis(state), result.reveal())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_constants() {
-        assert_eq!(MAX_ORDERS, 32);
-        assert_eq!(PRICE_SCALE, 1_000_000);
     }
 }

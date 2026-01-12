@@ -1,10 +1,18 @@
 use anchor_lang::prelude::*;
+use arcium_anchor::prelude::*;
+use arcium_client::idl::arcium::{types::CallbackAccount, ID_CONST};
 
-use crate::state::{Market, UserPosition, TradeSettlement};
+use crate::ID;
+use crate::state::Market;
 use crate::events::OrdersMatched;
 use crate::errors::DuskError;
+use crate::instructions::place_order::SignerAccount;
+
+/// Computation definition offset for match_book
+pub const COMP_DEF_OFFSET_MATCH_BOOK: u8 = 2;
 
 /// Trigger order matching via MPC
+#[queue_computation_accounts("match_book", caller)]
 #[derive(Accounts)]
 pub struct MatchOrders<'info> {
     /// Anyone can trigger matching (keeper, user, etc.)
@@ -14,24 +22,54 @@ pub struct MatchOrders<'info> {
     #[account(mut)]
     pub market: Account<'info, Market>,
 
-    /// CHECK: MXE computation account for queuing
+    /// Signer PDA for CPI to Arcium
+    #[account(
+        init_if_needed,
+        space = 9,
+        payer = caller,
+        seeds = [&SIGN_PDA_SEED],
+        bump
+    )]
+    pub sign_pda_account: Account<'info, SignerAccount>,
+
+    #[account(address = derive_mxe_pda!())]
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
+
+    /// CHECK: Mempool account
     #[account(mut)]
-    pub computation: AccountInfo<'info>,
+    pub mempool_account: UncheckedAccount<'info>,
 
-    /// CHECK: Arcium MXE account
-    pub mxe: AccountInfo<'info>,
-
-    /// CHECK: Arcium mempool
+    /// CHECK: Executing pool account
     #[account(mut)]
-    pub mempool: AccountInfo<'info>,
+    pub executing_pool: UncheckedAccount<'info>,
 
-    /// CHECK: Arcium program
-    pub arcium_program: AccountInfo<'info>,
+    /// CHECK: Computation account (will be initialized)
+    #[account(mut)]
+    pub computation_account: UncheckedAccount<'info>,
 
+    /// Computation definition account for match_book
+    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_MATCH_BOOK))]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+
+    /// Cluster account
+    #[account(mut)]
+    pub cluster_account: Account<'info, Cluster>,
+
+    /// Pool account (Arcium fee pool)
+    #[account(mut)]
+    pub pool_account: Account<'info, FeePool>,
+
+    /// Clock account
+    pub clock_account: Account<'info, ClockAccount>,
+
+    pub arcium_program: Program<'info, Arcium>,
     pub system_program: Program<'info, System>,
 }
 
 pub fn handler(ctx: Context<MatchOrders>) -> Result<()> {
+    // Set the sign_pda_account bump for CPI signing
+    ctx.accounts.sign_pda_account.bump = ctx.bumps.sign_pda_account;
+
     let market = &ctx.accounts.market;
 
     // Require at least one bid and one ask to attempt matching
@@ -40,22 +78,32 @@ pub fn handler(ctx: Context<MatchOrders>) -> Result<()> {
         DuskError::NoMatchingOrders
     );
 
-    // Queue computation to find matching orders
-    // The MPC will:
-    // 1. Scan bids (highest price first)
-    // 2. Scan asks (lowest price first)
-    // 3. Find crossing orders (bid.price >= ask.price)
-    // 4. Return revealed execution details
+    // match_book takes no additional arguments - it operates on MXE state
+    let computation_args = ArgBuilder::new().build();
 
-    // TODO: Implement arcium queue_computation CPI
-    // queue_computation!(
-    //     ctx.accounts.caller,
-    //     ctx.accounts.computation,
-    //     ctx.accounts.mxe,
-    //     ctx.accounts.mempool,
-    //     ctx.accounts.arcium_program,
-    //     MATCH_BOOK_COMP_DEF_OFFSET
-    // )?;
+    // Define callback accounts
+    let callback_accounts = vec![
+        CallbackAccount {
+            pubkey: market.key(),
+            is_writable: true,
+        },
+    ];
+
+    // Queue the encrypted computation
+    // match_book returns MatchResult with revealed execution details
+    queue_computation(
+        ctx.accounts,
+        0,
+        computation_args,
+        None,
+        vec![MatchBookCallback::callback_ix(
+            COMP_DEF_OFFSET_MATCH_BOOK as u64,
+            &ctx.accounts.mxe_account,
+            &callback_accounts,
+        )?],
+        1, // returns MatchResult
+        0, // tip
+    )?;
 
     msg!(
         "Match orders requested on market {} ({} bids, {} asks)",
@@ -67,23 +115,33 @@ pub fn handler(ctx: Context<MatchOrders>) -> Result<()> {
     Ok(())
 }
 
-/// Callback for match_orders computation
-/// Receives revealed execution details
-/// Note: Settlement account creation moved to separate instruction for simplicity
+/// Callback for match_book computation
+/// Receives revealed execution details from MatchResult
 #[derive(Accounts)]
-pub struct MatchOrdersCallback<'info> {
+pub struct MatchBookCallback<'info> {
     /// CHECK: Arcium callback authority
-    #[account(mut)]
     pub callback_authority: Signer<'info>,
 
     #[account(mut)]
     pub market: Account<'info, Market>,
+}
 
-    pub system_program: Program<'info, System>,
+impl MatchBookCallback<'_> {
+    pub fn callback_ix(
+        _computation_offset: u64,
+        _mxe_account: &MXEAccount,
+        extra_accs: &[CallbackAccount],
+    ) -> Result<arcium_client::idl::arcium::types::CallbackInstruction> {
+        Ok(arcium_client::idl::arcium::types::CallbackInstruction {
+            program_id: crate::ID,
+            discriminator: vec![0u8; 8], // Will be set correctly by Arcium runtime
+            accounts: extra_accs.to_vec(),
+        })
+    }
 }
 
 pub fn callback_handler(
-    ctx: Context<MatchOrdersCallback>,
+    ctx: Context<MatchBookCallback>,
     matched: bool,
     execution_price: u64,
     execution_amount: u64,
@@ -103,14 +161,15 @@ pub fn callback_handler(
     market.active_asks = market.active_asks.saturating_sub(1);
 
     // Note: In production, this callback would:
-    // 1. Create the settlement account
+    // 1. Create the settlement account with maker/taker pubkeys from MatchResult
     // 2. Update maker/taker positions
-    // For now, we just log the match result
+    // The MatchResult contains maker_lo, maker_hi, taker_lo, taker_hi
+    // which can be reconstructed to full Pubkeys
 
     emit!(OrdersMatched {
         market: market.key(),
-        maker: Pubkey::default(), // Would come from MPC result
-        taker: Pubkey::default(), // Would come from MPC result
+        maker: Pubkey::default(), // Would be reconstructed from maker_lo/maker_hi
+        taker: Pubkey::default(), // Would be reconstructed from taker_lo/taker_hi
         maker_order_id,
         taker_order_id,
         execution_price,

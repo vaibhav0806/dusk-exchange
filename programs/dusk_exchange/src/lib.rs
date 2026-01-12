@@ -1,7 +1,5 @@
 use anchor_lang::prelude::*;
-// Arcium prelude - commented out temporarily to avoid macro conflicts
-// Will be enabled when implementing queue_computation CPIs
-// use arcium_anchor::prelude::*;
+use arcium_anchor::prelude::*;
 
 pub mod state;
 pub mod instructions;
@@ -10,7 +8,7 @@ pub mod events;
 
 use instructions::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("7LyfNf3Q7weRFCA316BepiMGWkKVY5aE4xYPrNzSFTRQ");
 
 /// Computation definition offsets for Arcium MPC operations
 /// Each encrypted function needs a unique offset
@@ -70,8 +68,8 @@ pub mod dusk_exchange {
         instructions::place_order::handler(ctx, order_id, is_buy, encrypted_price, encrypted_amount, nonce)
     }
 
-    /// Callback handler for place_order computation
-    pub fn place_order_callback(ctx: Context<PlaceOrderCallback>) -> Result<()> {
+    /// Callback handler for add_order computation
+    pub fn add_order_callback(ctx: Context<AddOrderCallback>) -> Result<()> {
         instructions::place_order::callback_handler(ctx)
     }
 
@@ -80,8 +78,8 @@ pub mod dusk_exchange {
         instructions::cancel_order::handler(ctx, order_id)
     }
 
-    /// Callback handler for cancel_order computation
-    pub fn cancel_order_callback(ctx: Context<CancelOrderCallback>) -> Result<()> {
+    /// Callback handler for remove_order computation
+    pub fn remove_order_callback(ctx: Context<RemoveOrderCallback>) -> Result<()> {
         instructions::cancel_order::callback_handler(ctx)
     }
 
@@ -91,10 +89,10 @@ pub mod dusk_exchange {
         instructions::match_orders::handler(ctx)
     }
 
-    /// Callback handler for match_orders computation
+    /// Callback handler for match_book computation
     /// Receives revealed execution price and amount
-    pub fn match_orders_callback(
-        ctx: Context<MatchOrdersCallback>,
+    pub fn match_book_callback(
+        ctx: Context<MatchBookCallback>,
         matched: bool,
         execution_price: u64,
         execution_amount: u64,

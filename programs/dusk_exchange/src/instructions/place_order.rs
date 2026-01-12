@@ -1,10 +1,24 @@
 use anchor_lang::prelude::*;
+use arcium_anchor::prelude::*;
+use arcium_client::idl::arcium::{types::CallbackAccount, ID_CONST};
 
+use crate::ID;
 use crate::state::{Market, UserPosition};
 use crate::events::OrderPlaced;
 use crate::errors::DuskError;
 
+/// SignerAccount for the Arcium CPI signing PDA
+/// 9 bytes: 8 for discriminator + 1 for bump
+#[account]
+pub struct SignerAccount {
+    pub bump: u8,
+}
+
+/// Computation definition offset for add_order
+pub const COMP_DEF_OFFSET_ADD_ORDER: u8 = 0;
+
 /// Place an encrypted limit order
+#[queue_computation_accounts("add_order", user)]
 #[derive(Accounts)]
 #[instruction(order_id: u64)]
 pub struct PlaceOrder<'info> {
@@ -26,20 +40,47 @@ pub struct PlaceOrder<'info> {
     )]
     pub user_position: Account<'info, UserPosition>,
 
-    /// CHECK: MXE computation account for queuing
+    /// Signer PDA for CPI to Arcium
+    #[account(
+        init_if_needed,
+        space = 9,
+        payer = user,
+        seeds = [&SIGN_PDA_SEED],
+        bump
+    )]
+    pub sign_pda_account: Account<'info, SignerAccount>,
+
+    #[account(address = derive_mxe_pda!())]
+    pub mxe_account: Box<Account<'info, MXEAccount>>,
+
+    /// CHECK: Mempool account
     #[account(mut)]
-    pub computation: AccountInfo<'info>,
+    pub mempool_account: UncheckedAccount<'info>,
 
-    /// CHECK: Arcium MXE account
-    pub mxe: AccountInfo<'info>,
-
-    /// CHECK: Arcium mempool
+    /// CHECK: Executing pool account
     #[account(mut)]
-    pub mempool: AccountInfo<'info>,
+    pub executing_pool: UncheckedAccount<'info>,
 
-    /// CHECK: Arcium program
-    pub arcium_program: AccountInfo<'info>,
+    /// CHECK: Computation account (will be initialized)
+    #[account(mut)]
+    pub computation_account: UncheckedAccount<'info>,
 
+    /// Computation definition account for add_order
+    #[account(address = derive_comp_def_pda!(COMP_DEF_OFFSET_ADD_ORDER))]
+    pub comp_def_account: Account<'info, ComputationDefinitionAccount>,
+
+    /// Cluster account
+    #[account(mut)]
+    pub cluster_account: Account<'info, Cluster>,
+
+    /// Pool account (Arcium fee pool)
+    #[account(mut)]
+    pub pool_account: Account<'info, FeePool>,
+
+    /// Clock account
+    pub clock_account: Account<'info, ClockAccount>,
+
+    pub arcium_program: Program<'info, Arcium>,
     pub system_program: Program<'info, System>,
 }
 
@@ -51,56 +92,81 @@ pub fn handler(
     encrypted_amount: Vec<u8>,
     _nonce: [u8; 12],
 ) -> Result<()> {
-    let market = &mut ctx.accounts.market;
-    let user_position = &mut ctx.accounts.user_position;
+    // Set the sign_pda_account bump for CPI signing
+    ctx.accounts.sign_pda_account.bump = ctx.bumps.sign_pda_account;
 
-    // Validate encrypted data lengths
+    // Validate encrypted data lengths (32 bytes for encrypted values)
     require!(
-        encrypted_price.len() == 16 && encrypted_amount.len() == 16,
+        encrypted_price.len() == 32 && encrypted_amount.len() == 32,
         DuskError::InvalidEncryptedData
     );
 
-    // For now, we need to estimate the locked amount
-    // In production, this would be validated in the MPC callback
-    // The user should provide a max_amount they're willing to lock
-    // For MVP, we'll require pre-deposited funds
+    // Convert Vec<u8> to [u8; 32] for encrypted values
+    let price_arr: [u8; 32] = encrypted_price.try_into()
+        .map_err(|_| DuskError::InvalidEncryptedData)?;
+    let amount_arr: [u8; 32] = encrypted_amount.try_into()
+        .map_err(|_| DuskError::InvalidEncryptedData)?;
 
-    // Update market order count
+    // Capture keys before mutable borrows
+    let market_key = ctx.accounts.market.key();
+    let user_key = ctx.accounts.user.key();
+    let user_position_key = ctx.accounts.user_position.key();
+    let market_id = ctx.accounts.market.market_id;
+
+    // Split the user's pubkey into two u128 values for the Order struct
+    let user_bytes = user_key.to_bytes();
+    let owner_lo = u128::from_le_bytes(user_bytes[..16].try_into().unwrap());
+    let owner_hi = u128::from_le_bytes(user_bytes[16..].try_into().unwrap());
+
+    // Build computation arguments for add_order circuit using ArgBuilder
+    let computation_args = ArgBuilder::new()
+        .encrypted_u64(price_arr)
+        .encrypted_u64(amount_arr)
+        .plaintext_u128(owner_lo)
+        .plaintext_u128(owner_hi)
+        .plaintext_u64(order_id)
+        .plaintext_bool(is_buy)
+        .build();
+
+    // Define callback accounts
+    let callback_accounts = vec![
+        CallbackAccount { pubkey: market_key, is_writable: true },
+        CallbackAccount { pubkey: user_key, is_writable: false },
+        CallbackAccount { pubkey: user_position_key, is_writable: true },
+    ];
+
+    // Queue the encrypted computation
+    queue_computation(
+        ctx.accounts,
+        0,
+        computation_args,
+        None,
+        vec![AddOrderCallback::callback_ix(
+            COMP_DEF_OFFSET_ADD_ORDER as u64,
+            &ctx.accounts.mxe_account,
+            &callback_accounts,
+        )?],
+        1,
+        0,
+    )?;
+
+    // Update state after queue_computation
+    let market = &mut ctx.accounts.market;
+    let user_position = &mut ctx.accounts.user_position;
+
     market.order_count = market.order_count.saturating_add(1);
-
-    // Update active orders count
     if is_buy {
         market.active_bids = market.active_bids.saturating_add(1);
     } else {
         market.active_asks = market.active_asks.saturating_add(1);
     }
-
-    user_position.active_order_count = user_position
-        .active_order_count
-        .saturating_add(1);
-
-    // Queue computation to add order to encrypted orderbook
-    // TODO: Implement arcium queue_computation CPI
-    // queue_computation!(
-    //     ctx.accounts.user,
-    //     ctx.accounts.computation,
-    //     ctx.accounts.mxe,
-    //     ctx.accounts.mempool,
-    //     ctx.accounts.arcium_program,
-    //     ADD_ORDER_COMP_DEF_OFFSET,
-    //     encrypted_price,
-    //     encrypted_amount,
-    //     order_id,
-    //     is_buy,
-    //     ctx.accounts.user.key(),
-    //     nonce
-    // )?;
+    user_position.active_order_count = user_position.active_order_count.saturating_add(1);
 
     let clock = Clock::get()?;
 
     emit!(OrderPlaced {
-        market: market.key(),
-        user: ctx.accounts.user.key(),
+        market: market_key,
+        user: user_key,
         order_id,
         is_buy,
         timestamp: clock.unix_timestamp,
@@ -110,15 +176,16 @@ pub fn handler(
         "Order {} placed: {} order on market {}",
         order_id,
         if is_buy { "BUY" } else { "SELL" },
-        market.market_id
+        market_id
     );
 
     Ok(())
 }
 
-/// Callback for place_order computation
+/// Callback for add_order computation
+/// Note: Using manual implementation instead of callback_accounts macro due to SDK version issues
 #[derive(Accounts)]
-pub struct PlaceOrderCallback<'info> {
+pub struct AddOrderCallback<'info> {
     /// CHECK: Arcium callback authority
     pub callback_authority: Signer<'info>,
 
@@ -126,7 +193,7 @@ pub struct PlaceOrderCallback<'info> {
     pub market: Account<'info, Market>,
 
     /// CHECK: User who placed the order
-    pub user: AccountInfo<'info>,
+    pub user: UncheckedAccount<'info>,
 
     #[account(
         mut,
@@ -140,7 +207,22 @@ pub struct PlaceOrderCallback<'info> {
     pub user_position: Account<'info, UserPosition>,
 }
 
-pub fn callback_handler(ctx: Context<PlaceOrderCallback>) -> Result<()> {
+impl AddOrderCallback<'_> {
+    /// Generate callback instruction for queue_computation
+    pub fn callback_ix(
+        _computation_offset: u64,
+        _mxe_account: &MXEAccount,
+        extra_accs: &[CallbackAccount],
+    ) -> Result<arcium_client::idl::arcium::types::CallbackInstruction> {
+        Ok(arcium_client::idl::arcium::types::CallbackInstruction {
+            program_id: crate::ID,
+            discriminator: vec![0u8; 8], // Will be set correctly by Arcium runtime
+            accounts: extra_accs.to_vec(),
+        })
+    }
+}
+
+pub fn callback_handler(ctx: Context<AddOrderCallback>) -> Result<()> {
     // Callback from Arcium after order is added to encrypted orderbook
     // The actual order data is stored encrypted in the MXE
 

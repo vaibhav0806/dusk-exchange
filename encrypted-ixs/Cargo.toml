@@ -1,5 +1,5 @@
 [package]
-name = "encrypted_ixs"
+name = "encrypted-ixs"
 version = "0.1.0"
 description = "Encrypted instructions for Dusk Exchange using Arcis MPC"
 edition = "2021"

@@ -1,15 +1,70 @@
-[arcium]
-# Arcium configuration for Dusk Exchange
+# Arcium Configuration for Dusk Exchange
+# Documentation: https://docs.arcium.com/developers
+
+[localnet]
+# Number of MPC nodes in the local cluster (for testing)
+nodes = 2
+
+# Timeout for localnet startup (seconds)
+localnet_timeout_secs = 60
+
+# MPC backend to use
+# Supported values: "Cerberus"
+backends = ["Cerberus"]
 
 [cluster]
-# Use devnet cluster for development
-# Get your cluster offset from: https://docs.arcium.com/developers
-cluster_offset = 0  # Update with your assigned cluster offset
+# Cluster offset - a unique identifier for your cluster on the network
+# For testnet: Choose a large random number (8-10 digits) to avoid conflicts
+# For localnet: Use 0 (auto-assigned)
+# Get your offset by running: arcium init-cluster --offset <your-random-number>
+cluster_offset = 0
+
+# RPC endpoint for Solana
+rpc_url = "https://api.devnet.solana.com"
 
 [mxe]
-# MXE program configuration
+# MXE (Multi-party eXecution Environment) configuration
 program_name = "encrypted_ixs"
 
+# Your MXE program ID (set after deployment)
+# program_id = ""
+
 [build]
-# Build configuration
+# Build target for Solana programs
 target = "sbf-solana-solana"
+
+# ============================================================
+# SETUP INSTRUCTIONS
+# ============================================================
+#
+# 1. Install Arcium CLI:
+#    cargo install arcium-cli
+#
+# 2. For LOCAL testing (recommended first):
+#    arcium localnet
+#    # This spins up a local cluster automatically
+#
+# 3. For TESTNET deployment:
+#    a. Generate a keypair if you don't have one:
+#       solana-keygen new -o ~/.config/solana/arcium-keypair.json
+#
+#    b. Get devnet SOL:
+#       solana airdrop 2 --keypair ~/.config/solana/arcium-keypair.json
+#
+#    c. Create your cluster (choose a random 8-10 digit offset):
+#       arcium init-cluster \
+#         --keypair-path ~/.config/solana/arcium-keypair.json \
+#         --offset 123456789 \
+#         --max-nodes 4 \
+#         --rpc-url https://api.devnet.solana.com
+#
+#    d. Update cluster_offset above with your chosen offset
+#
+#    e. Deploy your MXE:
+#       arcium deploy \
+#         --cluster-offset <your-offset> \
+#         --keypair-path ~/.config/solana/arcium-keypair.json
+#
+# 4. For the Privacy Hackathon:
+#    Join Arcium Discord for cluster allocation: https://discord.com/invite/arcium
+# ============================================================

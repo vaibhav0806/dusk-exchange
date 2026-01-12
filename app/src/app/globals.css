@@ -1,0 +1,194 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-cipher: #00d4aa;
+  --color-cipher-glow: rgba(0, 212, 170, 0.15);
+  --color-dusk-950: #05080a;
+  --color-dusk-900: #0a1014;
+  --color-dusk-800: #111a20;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-dusk-950);
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-dusk-900);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-dusk-800);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1a262e;
+}
+
+/* Utility classes */
+@layer utilities {
+  .text-cipher {
+    color: var(--color-cipher);
+  }
+
+  .glow-cipher {
+    box-shadow: 0 0 20px var(--color-cipher-glow);
+  }
+
+  /* Encrypted data shimmer effect */
+  .encrypted-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 212, 170, 0.08) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 3s ease-in-out infinite;
+  }
+
+  /* Terminal-style text */
+  .terminal-text {
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: -0.02em;
+  }
+
+  /* Gradient border effect */
+  .border-gradient {
+    position: relative;
+  }
+
+  .border-gradient::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgba(0, 212, 170, 0.3),
+      transparent 50%,
+      rgba(0, 212, 170, 0.1)
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Glass morphism panel */
+  .glass-panel {
+    background: rgba(10, 16, 20, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 212, 170, 0.08);
+  }
+
+  /* Data row hover */
+  .data-row {
+    transition: background-color 0.15s ease;
+  }
+
+  .data-row:hover {
+    background: rgba(0, 212, 170, 0.04);
+  }
+
+  /* Input focus styles */
+  .input-cipher:focus {
+    outline: none;
+    border-color: rgba(0, 212, 170, 0.5);
+    box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.1);
+  }
+
+  /* Button styles */
+  .btn-cipher {
+    background: linear-gradient(135deg, #00d4aa 0%, #00a888 100%);
+    color: #05080a;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+
+  .btn-cipher:hover {
+    box-shadow: 0 0 24px rgba(0, 212, 170, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .btn-cipher:active {
+    transform: translateY(0);
+  }
+
+  /* Noise overlay */
+  .noise-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.02;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    z-index: 9999;
+  }
+}
+
+/* Number input - hide spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(0, 212, 170, 0.3);
+  color: #fff;
+}
+
+/* Wallet adapter overrides */
+.wallet-adapter-button {
+  background: transparent !important;
+  border: 1px solid rgba(0, 212, 170, 0.2) !important;
+  border-radius: 8px !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+.wallet-adapter-button:hover {
+  background: rgba(0, 212, 170, 0.08) !important;
+  border-color: rgba(0, 212, 170, 0.4) !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  background: rgba(5, 8, 10, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+}
+
+.wallet-adapter-modal-container {
+  background: #0a1014 !important;
+  border: 1px solid rgba(0, 212, 170, 0.1) !important;
+  border-radius: 16px !important;
+}
