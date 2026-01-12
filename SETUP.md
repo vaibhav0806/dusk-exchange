@@ -315,6 +315,39 @@ cd scripts && npm install && npm run demo
 
 ---
 
+---
+
+## Known Issues
+
+### Issue 9: Arcium `arcium test` command fails with "Failed to get cluster: Account not found"
+
+**Symptoms:**
+```
+ERROR arx: Failed to create coordinator: Creation("RPC error: Failed to get cluster: Account not found")
+```
+
+**Cause:** The `arcium test` command generates genesis account JSON files in `artifacts/` but does not properly load them into the Solana validator genesis. The ARX nodes start before the cluster account is available.
+
+**Current Status:** Under investigation. This appears to be a CLI bug in arcium-cli 0.5.4.
+
+**Workaround:** Use manual test commands instead of `arcium test`:
+```bash
+# 1. Start validator manually
+solana-test-validator --reset \
+  --bpf-program Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS target/deploy/dusk_exchange.so \
+  --bpf-program F3G6Q9tRicyznCqcZLydJ6RxkwDSBeHWM458J7V6aeyk artifacts/arcium_program_0.5.4.so \
+  --bpf-program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 artifacts/lighthouse.so
+
+# 2. Run non-Arcium tests (these work)
+export ANCHOR_PROVIDER_URL=http://127.0.0.1:8899
+export ANCHOR_WALLET=~/.config/solana/id.json
+TS_NODE_PROJECT=./tsconfig.json ./node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 tests/dusk_exchange.ts
+```
+
+**Note:** The encrypted order tests (5 pending) require Arcium MPC nodes. Until this issue is resolved, those tests remain pending.
+
+---
+
 ## Need Help?
 
 - [Arcium Documentation](https://docs.arcium.com)

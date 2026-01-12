@@ -8,11 +8,15 @@ import {
   useCallback,
   ReactNode,
   FC,
+  useMemo,
 } from "react";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-import { PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
-import { Wallet } from "@coral-xyz/anchor";
-import BN from "bn.js";
+import { PublicKey, LAMPORTS_PER_SOL, SystemProgram, SYSVAR_RENT_PUBKEY, Transaction } from "@solana/web3.js";
+import { Program, AnchorProvider, BN, Idl, Wallet } from "@coral-xyz/anchor";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getAccount, createAssociatedTokenAccountInstruction } from "@solana/spl-token";
+
+// IDL import - use require to avoid TypeScript module issues
+const IDL = require("../../../target/idl/dusk_exchange.json");
 
 // Types for the context
 interface Market {
@@ -78,8 +82,14 @@ const DuskExchangeContext = createContext<DuskExchangeContextType | null>(null);
 const DEVNET_SOL_MINT = new PublicKey("So11111111111111111111111111111111111111112");
 const DEVNET_USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"); // Devnet USDC
 
-// Program ID
+// Program ID - must match the deployed program
 const DUSK_PROGRAM_ID = new PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+
+// PDA Seeds
+const MARKET_SEED = Buffer.from("market");
+const USER_POSITION_SEED = Buffer.from("user_position");
+const BASE_VAULT_SEED = Buffer.from("base_vault");
+const QUOTE_VAULT_SEED = Buffer.from("quote_vault");
 
 interface DuskExchangeProviderProps {
   children: ReactNode;
@@ -104,11 +114,28 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
   const [walletBalances, setWalletBalances] = useState({ base: 0, quote: 0 });
   const [depositedBalances, setDepositedBalances] = useState({ base: 0, quote: 0 });
 
+  // Create Anchor program instance
+  const program = useMemo(() => {
+    if (!wallet.publicKey || !wallet.signTransaction) return null;
+    
+    try {
+      const provider = new AnchorProvider(
+        connection,
+        wallet as unknown as Wallet,
+        { commitment: "confirmed" }
+      );
+      return new Program(IDL as Idl, provider);
+    } catch (err) {
+      console.error("Failed to create program:", err);
+      return null;
+    }
+  }, [connection, wallet]);
+
   // Derive market PDA
   const deriveMarketPda = useCallback((id: number): PublicKey => {
     const marketIdBN = new BN(id);
     const [pda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("market"), marketIdBN.toArrayLike(Buffer, "le", 8)],
+      [MARKET_SEED, marketIdBN.toArrayLike(Buffer, "le", 8)],
       DUSK_PROGRAM_ID
     );
     return pda;
@@ -117,7 +144,24 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
   // Derive user position PDA
   const deriveUserPositionPda = useCallback((market: PublicKey, user: PublicKey): PublicKey => {
     const [pda] = PublicKey.findProgramAddressSync(
-      [Buffer.from("user_position"), market.toBuffer(), user.toBuffer()],
+      [USER_POSITION_SEED, market.toBuffer(), user.toBuffer()],
+      DUSK_PROGRAM_ID
+    );
+    return pda;
+  }, []);
+
+  // Derive vault PDAs
+  const deriveBaseVaultPda = useCallback((market: PublicKey): PublicKey => {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [BASE_VAULT_SEED, market.toBuffer()],
+      DUSK_PROGRAM_ID
+    );
+    return pda;
+  }, []);
+
+  const deriveQuoteVaultPda = useCallback((market: PublicKey): PublicKey => {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [QUOTE_VAULT_SEED, market.toBuffer()],
       DUSK_PROGRAM_ID
     );
     return pda;
@@ -131,29 +175,38 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
 
       const marketPda = deriveMarketPda(marketId);
 
-      // Try to fetch market account
-      const accountInfo = await connection.getAccountInfo(marketPda);
-
-      if (accountInfo) {
-        // Parse market data (simplified - in production use Anchor's coder)
-        // For now, create mock market data since parsing requires IDL
-        const mockMarket: Market = {
-          pubkey: marketPda,
-          marketId: new BN(marketId),
-          baseMint: DEVNET_SOL_MINT,
-          quoteMint: DEVNET_USDC_MINT,
-          baseVault: deriveMarketPda(marketId), // Simplified
-          quoteVault: deriveMarketPda(marketId), // Simplified
-          authority: wallet.publicKey || PublicKey.default,
-          feeRateBps: 30,
-          totalBaseDeposited: new BN(0),
-          totalQuoteDeposited: new BN(0),
-        };
-        setCurrentMarket(mockMarket);
-        setMarkets([mockMarket]);
+      if (program) {
+        try {
+          // Try to fetch market from the program
+          const marketAccount = await (program.account as any).market.fetch(marketPda);
+          
+          const market: Market = {
+            pubkey: marketPda,
+            marketId: marketAccount.marketId,
+            baseMint: marketAccount.baseMint,
+            quoteMint: marketAccount.quoteMint,
+            baseVault: marketAccount.baseVault,
+            quoteVault: marketAccount.quoteVault,
+            authority: marketAccount.authority,
+            feeRateBps: marketAccount.feeRateBps,
+            totalBaseDeposited: marketAccount.totalBaseDeposited,
+            totalQuoteDeposited: marketAccount.totalQuoteDeposited,
+          };
+          
+          setCurrentMarket(market);
+          setMarkets([market]);
+          console.log("Market loaded from chain:", market.pubkey.toString());
+        } catch (fetchErr) {
+          console.log("Market not found on-chain, using defaults");
+          setCurrentMarket(null);
+        }
       } else {
-        // Market doesn't exist yet - use defaults
-        console.log("Market not found on-chain, using defaults");
+        // No program available, use mock data
+        const accountInfo = await connection.getAccountInfo(marketPda);
+        if (accountInfo) {
+          // Market exists but we can't parse without program
+          console.log("Market exists but program not available for parsing");
+        }
         setCurrentMarket(null);
       }
     } catch (err) {
@@ -163,7 +216,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
       setIsLoading(false);
       setIsInitialized(true);
     }
-  }, [connection, marketId, deriveMarketPda, wallet.publicKey]);
+  }, [connection, marketId, deriveMarketPda, program]);
 
   // Fetch user position and balances
   const refreshUserPosition = useCallback(async () => {
@@ -179,115 +232,180 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
       const solBalance = await connection.getBalance(wallet.publicKey);
       const solAmount = solBalance / LAMPORTS_PER_SOL;
 
-      // For demo purposes, we'll use mock deposited balances
-      // In production, this would fetch from the user position account
       setWalletBalances({
         base: solAmount,
-        quote: 1000, // Mock USDC balance
+        quote: 1000, // Mock USDC balance - in production would fetch from token account
       });
 
       // Try to fetch user position from chain
       const marketPda = deriveMarketPda(marketId);
       const positionPda = deriveUserPositionPda(marketPda, wallet.publicKey);
-      const positionAccount = await connection.getAccountInfo(positionPda);
 
-      if (positionAccount) {
-        // Parse position data - simplified for demo
-        setDepositedBalances({
-          base: 0,
-          quote: 0,
-        });
-        setUserPosition({
-          market: marketPda,
-          owner: wallet.publicKey,
-          baseDeposited: new BN(0),
-          quoteDeposited: new BN(0),
-          baseLocked: new BN(0),
-          quoteLocked: new BN(0),
-        });
+      if (program) {
+        try {
+          const positionAccount = await (program.account as any).userPosition.fetch(positionPda);
+          
+          const baseDeposited = positionAccount.baseDeposited.toNumber() / LAMPORTS_PER_SOL;
+          const quoteDeposited = positionAccount.quoteDeposited.toNumber() / 1_000_000; // USDC has 6 decimals
+          
+          setDepositedBalances({
+            base: baseDeposited,
+            quote: quoteDeposited,
+          });
+          
+          setUserPosition({
+            market: marketPda,
+            owner: wallet.publicKey,
+            baseDeposited: positionAccount.baseDeposited,
+            quoteDeposited: positionAccount.quoteDeposited,
+            baseLocked: positionAccount.baseLocked,
+            quoteLocked: positionAccount.quoteLocked,
+          });
+          
+          console.log("User position loaded:", { baseDeposited, quoteDeposited });
+        } catch (fetchErr) {
+          // No position yet
+          setDepositedBalances({ base: 0, quote: 0 });
+          setUserPosition(null);
+        }
       } else {
-        // No position yet
         setDepositedBalances({ base: 0, quote: 0 });
         setUserPosition(null);
       }
     } catch (err) {
       console.error("Error fetching user position:", err);
     }
-  }, [connection, wallet.publicKey, marketId, deriveMarketPda, deriveUserPositionPda]);
+  }, [connection, wallet.publicKey, marketId, deriveMarketPda, deriveUserPositionPda, program]);
 
-  // Deposit tokens
+  // Deposit tokens - REAL IMPLEMENTATION
   const deposit = useCallback(async (amount: number, isBase: boolean): Promise<string> => {
     if (!wallet.publicKey || !wallet.signTransaction) {
       throw new Error("Wallet not connected");
+    }
+
+    if (!program) {
+      throw new Error("Program not initialized");
+    }
+
+    if (!currentMarket) {
+      throw new Error("Market not loaded. Please refresh.");
     }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      // For demo, just log the action
-      // In production, this would call the SDK
-      console.log(`Depositing ${amount} ${isBase ? "SOL" : "USDC"}`);
+      const marketPda = deriveMarketPda(marketId);
+      const userPositionPda = deriveUserPositionPda(marketPda, wallet.publicKey);
+      
+      const mint = isBase ? currentMarket.baseMint : currentMarket.quoteMint;
+      const vault = isBase ? currentMarket.baseVault : currentMarket.quoteVault;
 
-      // Simulate transaction delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Get user's token account
+      const userTokenAccount = await getAssociatedTokenAddress(
+        mint,
+        wallet.publicKey
+      );
 
-      // Update local state optimistically
-      setDepositedBalances((prev: { base: number; quote: number }) => ({
-        ...prev,
-        [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] + amount,
-      }));
+      // Convert amount to proper decimals
+      const decimals = isBase ? 9 : 6; // SOL = 9, USDC = 6
+      const amountBN = new BN(Math.floor(amount * Math.pow(10, decimals)));
 
-      setWalletBalances((prev: { base: number; quote: number }) => ({
-        ...prev,
-        [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] - amount,
-      }));
+      console.log(`Depositing ${amount} ${isBase ? "SOL" : "USDC"} (${amountBN.toString()} lamports)`);
 
-      return "mock-deposit-signature";
+      const tx = await program.methods
+        .deposit(amountBN, isBase)
+        .accountsPartial({
+          user: wallet.publicKey,
+          market: marketPda,
+          userPosition: userPositionPda,
+          userTokenAccount,
+          vault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      console.log("Deposit transaction:", tx);
+
+      // Refresh balances after deposit
+      await refreshUserPosition();
+
+      return tx;
     } catch (err) {
+      console.error("Deposit error:", err);
       const message = err instanceof Error ? err.message : "Deposit failed";
       setError(message);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [wallet.publicKey, wallet.signTransaction]);
+  }, [wallet.publicKey, wallet.signTransaction, program, currentMarket, marketId, deriveMarketPda, deriveUserPositionPda, refreshUserPosition]);
 
-  // Withdraw tokens
+  // Withdraw tokens - REAL IMPLEMENTATION
   const withdraw = useCallback(async (amount: number, isBase: boolean): Promise<string> => {
     if (!wallet.publicKey || !wallet.signTransaction) {
       throw new Error("Wallet not connected");
+    }
+
+    if (!program) {
+      throw new Error("Program not initialized");
+    }
+
+    if (!currentMarket) {
+      throw new Error("Market not loaded. Please refresh.");
     }
 
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log(`Withdrawing ${amount} ${isBase ? "SOL" : "USDC"}`);
+      const marketPda = deriveMarketPda(marketId);
+      const userPositionPda = deriveUserPositionPda(marketPda, wallet.publicKey);
+      
+      const mint = isBase ? currentMarket.baseMint : currentMarket.quoteMint;
+      const vault = isBase ? currentMarket.baseVault : currentMarket.quoteVault;
 
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const userTokenAccount = await getAssociatedTokenAddress(
+        mint,
+        wallet.publicKey
+      );
 
-      setDepositedBalances((prev: { base: number; quote: number }) => ({
-        ...prev,
-        [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] - amount,
-      }));
+      // Convert amount to proper decimals
+      const decimals = isBase ? 9 : 6;
+      const amountBN = new BN(Math.floor(amount * Math.pow(10, decimals)));
 
-      setWalletBalances((prev: { base: number; quote: number }) => ({
-        ...prev,
-        [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] + amount,
-      }));
+      console.log(`Withdrawing ${amount} ${isBase ? "SOL" : "USDC"} (${amountBN.toString()} lamports)`);
 
-      return "mock-withdraw-signature";
+      const tx = await program.methods
+        .withdraw(amountBN, isBase)
+        .accountsPartial({
+          user: wallet.publicKey,
+          market: marketPda,
+          userPosition: userPositionPda,
+          userTokenAccount,
+          vault,
+          tokenProgram: TOKEN_PROGRAM_ID,
+        })
+        .rpc();
+
+      console.log("Withdraw transaction:", tx);
+
+      // Refresh balances after withdraw
+      await refreshUserPosition();
+
+      return tx;
     } catch (err) {
+      console.error("Withdraw error:", err);
       const message = err instanceof Error ? err.message : "Withdrawal failed";
       setError(message);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [wallet.publicKey, wallet.signTransaction]);
+  }, [wallet.publicKey, wallet.signTransaction, program, currentMarket, marketId, deriveMarketPda, deriveUserPositionPda, refreshUserPosition]);
 
-  // Place order (encrypted)
+  // Place order (encrypted) - SIMULATED for now (requires Arcium MPC)
   const placeOrder = useCallback(async (
     side: "buy" | "sell",
     price: number,
@@ -302,11 +420,12 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
 
     try {
       console.log(`Placing encrypted ${side} order: ${amount} @ ${price}`);
+      console.log("Note: Full encrypted order placement requires Arcium MPC nodes");
 
       // Simulate encryption and transaction
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Add to local orders
+      // Add to local orders (simulated)
       const newOrder: Order = {
         id: `order-${Date.now()}`,
         side,
@@ -319,7 +438,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
 
       setUserOrders((prev: Order[]) => [newOrder, ...prev]);
 
-      // Lock funds
+      // Lock funds (simulated)
       if (side === "buy") {
         const lockAmount = price * amount;
         setDepositedBalances((prev: { base: number; quote: number }) => ({
@@ -333,7 +452,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
         }));
       }
 
-      return "mock-order-signature";
+      return "simulated-order-" + newOrder.id;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Order failed";
       setError(message);
@@ -343,7 +462,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
     }
   }, [wallet.publicKey, wallet.signTransaction]);
 
-  // Cancel order
+  // Cancel order - SIMULATED for now
   const cancelOrder = useCallback(async (orderId: string): Promise<string> => {
     if (!wallet.publicKey || !wallet.signTransaction) {
       throw new Error("Wallet not connected");
@@ -378,7 +497,7 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
 
       setUserOrders((prev: Order[]) => prev.filter((o: Order) => o.id !== orderId));
 
-      return "mock-cancel-signature";
+      return "cancelled-" + orderId;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Cancel failed";
       setError(message);

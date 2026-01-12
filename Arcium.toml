@@ -6,7 +6,7 @@
 nodes = 2
 
 # Timeout for localnet startup (seconds)
-localnet_timeout_secs = 60
+localnet_timeout_secs = 120
 
 # MPC backend to use
 # Supported values: "Cerberus"
