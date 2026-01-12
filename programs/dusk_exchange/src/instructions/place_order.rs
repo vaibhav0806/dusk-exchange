@@ -91,6 +91,7 @@ pub fn handler(
     encrypted_price: Vec<u8>,
     encrypted_amount: Vec<u8>,
     _nonce: [u8; 12],
+    lock_amount: u64,
 ) -> Result<()> {
     // Set the sign_pda_account bump for CPI signing
     ctx.accounts.sign_pda_account.bump = ctx.bumps.sign_pda_account;
@@ -100,6 +101,14 @@ pub fn handler(
         encrypted_price.len() == 32 && encrypted_amount.len() == 32,
         DuskError::InvalidEncryptedData
     );
+
+    // Validate lock amount is non-zero
+    require!(lock_amount > 0, DuskError::AmountTooSmall);
+
+    // Lock tokens for this order
+    // Buy orders lock quote tokens, sell orders lock base tokens
+    let user_position = &mut ctx.accounts.user_position;
+    user_position.lock_for_order(lock_amount, is_buy)?;
 
     // Convert Vec<u8> to [u8; 32] for encrypted values
     let price_arr: [u8; 32] = encrypted_price.try_into()
@@ -150,9 +159,9 @@ pub fn handler(
         0,
     )?;
 
-    // Update state after queue_computation
+    // Update market state after queue_computation
+    // Note: user_position.active_order_count was already updated by lock_for_order
     let market = &mut ctx.accounts.market;
-    let user_position = &mut ctx.accounts.user_position;
 
     market.order_count = market.order_count.saturating_add(1);
     if is_buy {
@@ -160,7 +169,6 @@ pub fn handler(
     } else {
         market.active_asks = market.active_asks.saturating_add(1);
     }
-    user_position.active_order_count = user_position.active_order_count.saturating_add(1);
 
     let clock = Clock::get()?;
 

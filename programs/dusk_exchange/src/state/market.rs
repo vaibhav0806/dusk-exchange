@@ -44,6 +44,33 @@ pub struct Market {
     /// Number of active sell orders
     pub active_asks: u32,
 
+    /// Counter for generating unique settlement IDs
+    pub settlement_count: u64,
+
+    /// Pending match - maker pubkey (from last match, needs settlement creation)
+    pub pending_maker: Pubkey,
+
+    /// Pending match - taker pubkey
+    pub pending_taker: Pubkey,
+
+    /// Pending match - maker order ID
+    pub pending_maker_order_id: u64,
+
+    /// Pending match - taker order ID
+    pub pending_taker_order_id: u64,
+
+    /// Pending match - execution price
+    pub pending_execution_price: u64,
+
+    /// Pending match - execution amount
+    pub pending_execution_amount: u64,
+
+    /// Pending match - timestamp
+    pub pending_matched_at: i64,
+
+    /// Whether there's a pending match that needs settlement creation
+    pub has_pending_match: bool,
+
     /// PDA bump seed
     pub bump: u8,
 }
@@ -63,6 +90,15 @@ impl Market {
         8 +   // quote_locked
         4 +   // active_bids
         4 +   // active_asks
+        8 +   // settlement_count
+        32 +  // pending_maker
+        32 +  // pending_taker
+        8 +   // pending_maker_order_id
+        8 +   // pending_taker_order_id
+        8 +   // pending_execution_price
+        8 +   // pending_execution_amount
+        8 +   // pending_matched_at
+        1 +   // has_pending_match
         1;    // bump
 
     pub const SEED_PREFIX: &'static [u8] = b"market";

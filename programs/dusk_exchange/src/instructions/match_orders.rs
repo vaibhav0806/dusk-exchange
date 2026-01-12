@@ -116,7 +116,7 @@ pub fn handler(ctx: Context<MatchOrders>) -> Result<()> {
 }
 
 /// Callback for match_book computation
-/// Receives revealed execution details from MatchResult
+/// Receives revealed execution details from MatchResult and stores in market
 #[derive(Accounts)]
 pub struct MatchBookCallback<'info> {
     /// CHECK: Arcium callback authority
@@ -140,6 +140,14 @@ impl MatchBookCallback<'_> {
     }
 }
 
+/// Reconstruct a Pubkey from two u128 values (low and high bits)
+pub fn reconstruct_pubkey(lo: u128, hi: u128) -> Pubkey {
+    let mut bytes = [0u8; 32];
+    bytes[..16].copy_from_slice(&lo.to_le_bytes());
+    bytes[16..].copy_from_slice(&hi.to_le_bytes());
+    Pubkey::new_from_array(bytes)
+}
+
 pub fn callback_handler(
     ctx: Context<MatchBookCallback>,
     matched: bool,
@@ -147,29 +155,41 @@ pub fn callback_handler(
     execution_amount: u64,
     maker_order_id: u64,
     taker_order_id: u64,
+    maker_lo: u128,
+    maker_hi: u128,
+    taker_lo: u128,
+    taker_hi: u128,
 ) -> Result<()> {
+    let market = &mut ctx.accounts.market;
+    let clock = Clock::get()?;
+
     if !matched {
         msg!("No matching orders found");
         return Ok(());
     }
 
-    let market = &mut ctx.accounts.market;
-    let clock = Clock::get()?;
+    // Reconstruct maker and taker pubkeys from split u128 values
+    let maker = reconstruct_pubkey(maker_lo, maker_hi);
+    let taker = reconstruct_pubkey(taker_lo, taker_hi);
 
     // Update market stats
     market.active_bids = market.active_bids.saturating_sub(1);
     market.active_asks = market.active_asks.saturating_sub(1);
 
-    // Note: In production, this callback would:
-    // 1. Create the settlement account with maker/taker pubkeys from MatchResult
-    // 2. Update maker/taker positions
-    // The MatchResult contains maker_lo, maker_hi, taker_lo, taker_hi
-    // which can be reconstructed to full Pubkeys
+    // Store pending match info in market for later settlement creation
+    market.pending_maker = maker;
+    market.pending_taker = taker;
+    market.pending_maker_order_id = maker_order_id;
+    market.pending_taker_order_id = taker_order_id;
+    market.pending_execution_price = execution_price;
+    market.pending_execution_amount = execution_amount;
+    market.pending_matched_at = clock.unix_timestamp;
+    market.has_pending_match = true;
 
     emit!(OrdersMatched {
         market: market.key(),
-        maker: Pubkey::default(), // Would be reconstructed from maker_lo/maker_hi
-        taker: Pubkey::default(), // Would be reconstructed from taker_lo/taker_hi
+        maker,
+        taker,
         maker_order_id,
         taker_order_id,
         execution_price,
@@ -178,9 +198,11 @@ pub fn callback_handler(
     });
 
     msg!(
-        "Orders matched! Price: {}, Amount: {}",
+        "Orders matched! Price: {}, Amount: {}, Maker: {}, Taker: {}. Call create_settlement to finalize.",
         execution_price,
-        execution_amount
+        execution_amount,
+        maker,
+        taker
     );
 
     Ok(())

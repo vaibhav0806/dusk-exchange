@@ -57,6 +57,7 @@ pub mod dusk_exchange {
 
     /// Place an encrypted limit order
     /// Order details (price, amount) are encrypted with Arcium
+    /// lock_amount specifies how many tokens to lock (quote for buy, base for sell)
     pub fn place_order(
         ctx: Context<PlaceOrder>,
         order_id: u64,
@@ -64,8 +65,9 @@ pub mod dusk_exchange {
         encrypted_price: Vec<u8>,
         encrypted_amount: Vec<u8>,
         nonce: [u8; 12],
+        lock_amount: u64,
     ) -> Result<()> {
-        instructions::place_order::handler(ctx, order_id, is_buy, encrypted_price, encrypted_amount, nonce)
+        instructions::place_order::handler(ctx, order_id, is_buy, encrypted_price, encrypted_amount, nonce, lock_amount)
     }
 
     /// Callback handler for add_order computation
@@ -90,7 +92,7 @@ pub mod dusk_exchange {
     }
 
     /// Callback handler for match_book computation
-    /// Receives revealed execution price and amount
+    /// Receives revealed execution details and stores pending match in market
     pub fn match_book_callback(
         ctx: Context<MatchBookCallback>,
         matched: bool,
@@ -98,10 +100,22 @@ pub mod dusk_exchange {
         execution_amount: u64,
         maker_order_id: u64,
         taker_order_id: u64,
+        maker_lo: u128,
+        maker_hi: u128,
+        taker_lo: u128,
+        taker_hi: u128,
     ) -> Result<()> {
         instructions::match_orders::callback_handler(
-            ctx, matched, execution_price, execution_amount, maker_order_id, taker_order_id
+            ctx, matched, execution_price, execution_amount,
+            maker_order_id, taker_order_id,
+            maker_lo, maker_hi, taker_lo, taker_hi
         )
+    }
+
+    /// Create a settlement account from a pending match
+    /// Anyone can call this after a match_book_callback stores pending match data
+    pub fn create_settlement(ctx: Context<CreateSettlement>) -> Result<()> {
+        instructions::create_settlement::handler(ctx)
     }
 
     /// Settle a matched trade by transferring tokens

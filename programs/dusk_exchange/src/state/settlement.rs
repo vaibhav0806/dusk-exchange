@@ -71,13 +71,11 @@ impl TradeSettlement {
 /// Seeds for deriving settlement PDA
 pub fn settlement_seeds(
     market: &Pubkey,
-    maker_order_id: u64,
-    taker_order_id: u64,
-) -> [Vec<u8>; 4] {
+    settlement_id: u64,
+) -> [Vec<u8>; 3] {
     [
         TradeSettlement::SEED_PREFIX.to_vec(),
         market.as_ref().to_vec(),
-        maker_order_id.to_le_bytes().to_vec(),
-        taker_order_id.to_le_bytes().to_vec(),
+        settlement_id.to_le_bytes().to_vec(),
     ]
 }

@@ -5,6 +5,7 @@ pub mod init_comp_defs;
 pub mod place_order;
 pub mod cancel_order;
 pub mod match_orders;
+pub mod create_settlement;
 pub mod settle_trade;
 
 pub use initialize_market::*;
@@ -14,4 +15,5 @@ pub use init_comp_defs::*;
 pub use place_order::*;
 pub use cancel_order::*;
 pub use match_orders::*;
+pub use create_settlement::*;
 pub use settle_trade::*;
