@@ -3,7 +3,7 @@
 import { FC, useMemo } from "react";
 import { cn, formatNumber } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { Eye, EyeOff } from "lucide-react";
+import { Shield, Activity } from "lucide-react";
 
 interface OrderBookEntry {
   price: number;
@@ -74,30 +74,28 @@ export const OrderBook: FC<OrderBookProps> = ({
   return (
     <div className="glass-panel rounded-2xl overflow-hidden h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b border-dusk-800/50">
+      <div className="px-5 py-4 border-b border-border-subtle">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold text-white">
+          <h2 className="font-display text-base font-semibold text-text-primary">
             Order Book
           </h2>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-xs text-dusk-500">
+            <span className="font-mono text-xs text-text-tertiary">
               {baseSymbol}/{quoteSymbol}
             </span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent-subtle border border-accent/20">
+              <Activity className="h-3 w-3 text-accent" />
+              <span className="font-mono text-[10px] text-accent">Live</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-3 gap-2 px-4 py-2 bg-dusk-900/30 border-b border-dusk-800/50">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-dusk-500">
-          Price ({quoteSymbol})
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-dusk-500 text-right">
-          Amount ({baseSymbol})
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-dusk-500 text-right">
-          Total
-        </span>
+      <div className="grid grid-cols-3 gap-2 px-5 py-2.5 bg-surface-elevated border-b border-border-subtle">
+        <span className="table-header">Price ({quoteSymbol})</span>
+        <span className="table-header text-right">Size ({baseSymbol})</span>
+        <span className="table-header text-right">Total</span>
       </div>
 
       {/* Asks (Sells) - Red */}
@@ -115,23 +113,23 @@ export const OrderBook: FC<OrderBookProps> = ({
         </div>
 
         {/* Spread / Last Price */}
-        <div className="sticky top-0 z-10 py-3 px-4 bg-dusk-900/80 backdrop-blur-sm border-y border-dusk-800/50">
+        <div className="sticky top-0 z-10 py-3 px-5 bg-surface/95 backdrop-blur-sm border-y border-border-subtle">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xl font-semibold text-white">
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xl font-semibold text-text-primary">
                 {formatNumber(lastPrice, 2)}
               </span>
               <span
                 className={cn(
-                  "font-mono text-sm",
-                  priceChange >= 0 ? "text-bull-400" : "text-bear-400"
+                  "font-mono text-sm font-medium",
+                  priceChange >= 0 ? "text-success" : "text-danger"
                 )}
               >
                 {priceChange >= 0 ? "+" : ""}
                 {priceChange.toFixed(2)}%
               </span>
             </div>
-            <span className="font-mono text-xs text-dusk-500">Last Trade</span>
+            <span className="font-mono text-xs text-text-muted">Last Trade</span>
           </div>
         </div>
 
@@ -150,17 +148,13 @@ export const OrderBook: FC<OrderBookProps> = ({
       </div>
 
       {/* Footer - Privacy indicator */}
-      <div className="p-3 border-t border-dusk-800/50 bg-dusk-900/30">
+      <div className="px-5 py-3 border-t border-border-subtle bg-surface-elevated">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <EyeOff className="h-3.5 w-3.5 text-cipher-500" />
-            <span className="font-mono text-[10px] text-dusk-400">
+            <Shield className="h-3.5 w-3.5 text-accent" />
+            <span className="font-mono text-[10px] text-text-tertiary">
               Encrypted orders hidden until match
             </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="h-2 w-2 rounded-full bg-cipher-500/50 animate-pulse" />
-            <span className="font-mono text-[10px] text-dusk-500">Live</span>
           </div>
         </div>
       </div>
@@ -180,36 +174,38 @@ const OrderRow: FC<{
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: isBid ? -10 : 10 }}
+      initial={{ opacity: 0, x: isBid ? -8 : 8 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.02 }}
-      className="relative group data-row"
+      transition={{ delay: index * 0.015, duration: 0.2 }}
+      className="relative group"
     >
       {/* Depth visualization */}
       <div
         className={cn(
-          "absolute inset-y-0 transition-all duration-300",
-          isBid ? "right-0 bg-bull-500/8" : "left-0 bg-bear-500/8"
+          "absolute inset-y-0 transition-all duration-500 ease-out-expo",
+          isBid
+            ? "right-0 bg-gradient-to-l from-success/10 to-transparent"
+            : "left-0 bg-gradient-to-r from-danger/10 to-transparent"
         )}
         style={{ width: `${depthPercentage}%` }}
       />
 
-      <div className="relative grid grid-cols-3 gap-2 px-4 py-1.5">
+      <div className="relative grid grid-cols-3 gap-2 px-5 py-2 hover:bg-white/[0.02] transition-colors">
         {/* Price */}
         <span
           className={cn(
-            "font-mono text-sm tabular-nums",
-            isBid ? "text-bull-400" : "text-bear-400"
+            "font-mono text-sm tabular-nums font-medium",
+            isBid ? "text-success" : "text-danger"
           )}
         >
           {formatNumber(entry.price, 2)}
         </span>
 
         {/* Amount */}
-        <span className="font-mono text-sm tabular-nums text-dusk-300 text-right">
+        <span className="font-mono text-sm tabular-nums text-text-secondary text-right">
           {entry.isEncrypted ? (
-            <span className="inline-flex items-center gap-1 text-dusk-500">
-              <span className="encrypted-shimmer px-2 py-0.5 rounded bg-dusk-800/50">
+            <span className="inline-flex items-center justify-end gap-1">
+              <span className="encrypted-shimmer px-2 py-0.5 rounded text-text-muted">
                 ••••
               </span>
             </span>
@@ -219,9 +215,9 @@ const OrderRow: FC<{
         </span>
 
         {/* Total */}
-        <span className="font-mono text-sm tabular-nums text-dusk-400 text-right">
+        <span className="font-mono text-sm tabular-nums text-text-tertiary text-right">
           {entry.isEncrypted ? (
-            <span className="text-dusk-600">—</span>
+            <span className="text-text-muted">—</span>
           ) : (
             formatNumber(entry.total, 2)
           )}

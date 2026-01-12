@@ -18,24 +18,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen bg-dusk-950 antialiased">
-        {/* Noise overlay for texture */}
+      <body className="min-h-screen antialiased">
+        {/* Subtle noise overlay */}
         <div className="noise-overlay" />
 
-        {/* Grid background */}
-        <div
-          className="fixed inset-0 bg-grid-pattern bg-grid pointer-events-none"
-          style={{ opacity: 0.4 }}
-        />
-
-        {/* Radial gradient accent */}
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 212, 170, 0.08), transparent)",
-          }}
-        />
+        {/* Ambient glow effects */}
+        <div className="ambient-glow" style={{ top: "-200px", left: "20%" }} />
+        <div className="ambient-glow" style={{ bottom: "-200px", right: "10%" }} />
 
         <WalletProvider>
           <div className="relative z-10">{children}</div>

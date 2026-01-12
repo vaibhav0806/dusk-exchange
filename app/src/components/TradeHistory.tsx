@@ -48,47 +48,41 @@ export const TradeHistory: FC<TradeHistoryProps> = ({
   return (
     <div className="glass-panel rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-dusk-800/50">
-        <h2 className="font-display text-lg font-semibold text-white">
+      <div className="px-5 py-4 border-b border-border-subtle">
+        <h2 className="font-display text-base font-semibold text-text-primary">
           Recent Trades
         </h2>
       </div>
 
       {/* Column Headers */}
-      <div className="grid grid-cols-3 gap-2 px-4 py-2 bg-dusk-900/30 border-b border-dusk-800/50">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-dusk-500">
-          Price ({quoteSymbol})
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-dusk-500 text-right">
-          Amount ({baseSymbol})
-        </span>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-dusk-500 text-right">
-          Time
-        </span>
+      <div className="grid grid-cols-3 gap-2 px-5 py-2.5 bg-surface-elevated border-b border-border-subtle">
+        <span className="table-header">Price ({quoteSymbol})</span>
+        <span className="table-header text-right">Size ({baseSymbol})</span>
+        <span className="table-header text-right">Time</span>
       </div>
 
       {/* Trades List */}
-      <div className="max-h-[250px] overflow-y-auto">
+      <div className="max-h-[220px] overflow-y-auto">
         {trades.map((trade, index) => (
           <motion.div
             key={trade.id}
-            initial={{ opacity: 0, x: -10 }}
+            initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: index * 0.03 }}
-            className="grid grid-cols-3 gap-2 px-4 py-2 data-row"
+            transition={{ delay: index * 0.02, duration: 0.2 }}
+            className="grid grid-cols-3 gap-2 px-5 py-2 hover:bg-white/[0.02] transition-colors"
           >
             <span
               className={cn(
-                "font-mono text-sm tabular-nums",
-                trade.side === "buy" ? "text-bull-400" : "text-bear-400"
+                "font-mono text-sm tabular-nums font-medium",
+                trade.side === "buy" ? "text-success" : "text-danger"
               )}
             >
               {formatNumber(trade.price, 2)}
             </span>
-            <span className="font-mono text-sm tabular-nums text-dusk-300 text-right">
+            <span className="font-mono text-sm tabular-nums text-text-secondary text-right">
               {formatNumber(trade.amount, 4)}
             </span>
-            <span className="font-mono text-xs tabular-nums text-dusk-500 text-right">
+            <span className="font-mono text-xs tabular-nums text-text-muted text-right">
               {formatTime(trade.timestamp)}
             </span>
           </motion.div>

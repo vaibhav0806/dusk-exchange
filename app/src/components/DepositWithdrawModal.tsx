@@ -30,7 +30,6 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Use real balances from hooks
   const baseBalance = walletBalances.base;
   const quoteBalance = walletBalances.quote;
   const baseDeposited = depositedBalances.base;
@@ -56,11 +55,10 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
       }
 
       setSuccessMessage(
-        `Successfully ${mode === "deposit" ? "deposited" : "withdrew"} ${amountNum} ${symbol}!`
+        `Successfully ${mode === "deposit" ? "deposited" : "withdrew"} ${amountNum} ${symbol}`
       );
       setAmount("");
 
-      // Close modal after short delay
       setTimeout(() => {
         setSuccessMessage(null);
         onClose();
@@ -86,7 +84,7 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-dusk-950/80 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
           />
 
           {/* Modal */}
@@ -95,47 +93,45 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2"
+            className="fixed inset-4 z-50 flex items-center justify-center pointer-events-none"
           >
-            <div className="glass-panel rounded-2xl border border-dusk-700/50 shadow-2xl">
+            <div className="w-full max-w-md max-h-full overflow-y-auto pointer-events-auto glass-panel-elevated rounded-3xl">
               {/* Header */}
-              <div className="flex items-center justify-between p-5 border-b border-dusk-800/50">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-cipher-glow border border-cipher-500/20">
-                    <Wallet className="h-5 w-5 text-cipher-500" />
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-accent-subtle border border-accent/20">
+                    <Wallet className="h-5 w-5 text-accent" />
                   </div>
                   <div>
-                    <h2 className="font-display text-lg font-semibold text-white">
+                    <h2 className="font-display text-lg font-semibold text-text-primary">
                       Manage Funds
                     </h2>
-                    <p className="text-xs text-dusk-400">
+                    <p className="text-xs text-text-muted">
                       Deposit or withdraw from your trading account
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-lg hover:bg-dusk-800 transition-colors"
+                  className="p-2 rounded-lg hover:bg-surface-elevated transition-colors"
                 >
-                  <X className="h-5 w-5 text-dusk-400" />
+                  <X className="h-5 w-5 text-text-muted" />
                 </button>
               </div>
 
               {/* Mode Toggle */}
-              <div className="p-5 border-b border-dusk-800/50">
-                <div className="relative flex p-1 bg-dusk-900 rounded-xl">
+              <div className="px-6 py-4 border-b border-border-subtle">
+                <div className="relative flex p-1 bg-surface-elevated rounded-xl border border-border-subtle">
                   <motion.div
-                    className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg bg-cipher-500/20"
-                    animate={{ x: mode === "deposit" ? 0 : "100%" }}
+                    className="absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-lg bg-accent-subtle"
+                    animate={{ x: mode === "deposit" ? 0 : "calc(100% + 4px)" }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   />
                   <button
                     onClick={() => setMode("deposit")}
                     className={cn(
-                      "relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-display font-medium transition-colors",
-                      mode === "deposit"
-                        ? "text-cipher-400"
-                        : "text-dusk-400 hover:text-dusk-300"
+                      "relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-display font-medium text-sm transition-colors",
+                      mode === "deposit" ? "text-accent" : "text-text-muted hover:text-text-secondary"
                     )}
                   >
                     <ArrowDownToLine className="h-4 w-4" />
@@ -144,10 +140,8 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                   <button
                     onClick={() => setMode("withdraw")}
                     className={cn(
-                      "relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-display font-medium transition-colors",
-                      mode === "withdraw"
-                        ? "text-cipher-400"
-                        : "text-dusk-400 hover:text-dusk-300"
+                      "relative z-10 flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg font-display font-medium text-sm transition-colors",
+                      mode === "withdraw" ? "text-accent" : "text-text-muted hover:text-text-secondary"
                     )}
                   >
                     <ArrowUpFromLine className="h-4 w-4" />
@@ -157,10 +151,10 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
               </div>
 
               {/* Content */}
-              <div className="p-5 space-y-5">
+              <div className="p-6 space-y-5">
                 {/* Token Selection */}
                 <div>
-                  <label className="text-sm text-dusk-400 mb-2 block">
+                  <label className="text-sm font-medium text-text-secondary mb-2.5 block">
                     Select Token
                   </label>
                   <div className="grid grid-cols-2 gap-3">
@@ -169,23 +163,20 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                       className={cn(
                         "p-4 rounded-xl border transition-all",
                         selectedToken === "base"
-                          ? "bg-cipher-glow border-cipher-500/30"
-                          : "bg-dusk-900 border-dusk-700 hover:border-dusk-600"
+                          ? "bg-accent-subtle border-accent/30"
+                          : "bg-surface-elevated border-border-subtle hover:border-border"
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center text-white font-bold text-xs">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center text-white font-display font-bold text-sm">
                           S
                         </div>
                         <div className="text-left">
-                          <p className="font-display font-medium text-white">
+                          <p className="font-display font-medium text-text-primary">
                             {baseSymbol}
                           </p>
-                          <p className="font-mono text-xs text-dusk-400">
-                            {formatNumber(
-                              mode === "deposit" ? baseBalance : baseDeposited,
-                              4
-                            )}
+                          <p className="font-mono text-xs text-text-muted">
+                            {formatNumber(mode === "deposit" ? baseBalance : baseDeposited, 4)}
                           </p>
                         </div>
                       </div>
@@ -195,23 +186,20 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                       className={cn(
                         "p-4 rounded-xl border transition-all",
                         selectedToken === "quote"
-                          ? "bg-cipher-glow border-cipher-500/30"
-                          : "bg-dusk-900 border-dusk-700 hover:border-dusk-600"
+                          ? "bg-accent-subtle border-accent/30"
+                          : "bg-surface-elevated border-border-subtle hover:border-border"
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-[#2775CA] flex items-center justify-center text-white font-bold text-xs">
+                        <div className="w-9 h-9 rounded-full bg-[#2775CA] flex items-center justify-center text-white font-display font-bold text-sm">
                           $
                         </div>
                         <div className="text-left">
-                          <p className="font-display font-medium text-white">
+                          <p className="font-display font-medium text-text-primary">
                             {quoteSymbol}
                           </p>
-                          <p className="font-mono text-xs text-dusk-400">
-                            {formatNumber(
-                              mode === "deposit" ? quoteBalance : quoteDeposited,
-                              2
-                            )}
+                          <p className="font-mono text-xs text-text-muted">
+                            {formatNumber(mode === "deposit" ? quoteBalance : quoteDeposited, 2)}
                           </p>
                         </div>
                       </div>
@@ -221,9 +209,9 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
 
                 {/* Amount Input */}
                 <div>
-                  <label className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-dusk-400">Amount</span>
-                    <span className="font-mono text-xs text-dusk-500">
+                  <label className="flex items-center justify-between mb-2.5">
+                    <span className="text-sm font-medium text-text-secondary">Amount</span>
+                    <span className="font-mono text-xs text-text-muted">
                       Available: {formatNumber(availableBalance, 4)} {symbol}
                     </span>
                   </label>
@@ -233,16 +221,11 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0.00"
-                      className={cn(
-                        "w-full h-14 px-4 pr-20 rounded-xl",
-                        "bg-dusk-900 border border-dusk-700",
-                        "font-mono text-xl text-white placeholder:text-dusk-600",
-                        "input-cipher transition-all duration-200"
-                      )}
+                      className="w-full h-14 px-4 pr-20 rounded-xl input-premium font-mono text-xl text-text-primary placeholder:text-text-muted"
                     />
                     <button
                       onClick={handleMaxClick}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-cipher-500/10 border border-cipher-500/20 text-cipher-400 font-mono text-xs hover:bg-cipher-500/20 transition-colors"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-lg bg-accent-subtle border border-accent/20 text-accent font-mono text-xs hover:bg-accent/20 transition-colors"
                     >
                       MAX
                     </button>
@@ -250,31 +233,26 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                 </div>
 
                 {/* Balance Summary */}
-                <div className="p-4 rounded-xl bg-dusk-900/50 border border-dusk-800">
+                <div className="p-4 rounded-xl bg-surface-elevated border border-border-subtle">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-dusk-400">
+                    <span className="text-sm text-text-secondary">
                       {mode === "deposit" ? "Wallet Balance" : "Deposited"}
                     </span>
-                    <span className="font-mono text-sm text-dusk-300">
-                      {formatNumber(
-                        mode === "deposit" ? walletBalance : depositedBalance,
-                        4
-                      )}{" "}
-                      {symbol}
+                    <span className="font-mono text-sm text-text-secondary">
+                      {formatNumber(mode === "deposit" ? walletBalance : depositedBalance, 4)} {symbol}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-dusk-400">
+                    <span className="text-sm text-text-secondary">
                       After {mode === "deposit" ? "Deposit" : "Withdrawal"}
                     </span>
-                    <span className="font-mono text-sm text-white">
+                    <span className="font-mono text-sm font-medium text-text-primary">
                       {formatNumber(
                         mode === "deposit"
-                          ? (depositedBalance + parseFloat(amount || "0"))
-                          : (depositedBalance - parseFloat(amount || "0")),
+                          ? depositedBalance + parseFloat(amount || "0")
+                          : depositedBalance - parseFloat(amount || "0"),
                         4
-                      )}{" "}
-                      {symbol}
+                      )} {symbol}
                     </span>
                   </div>
                 </div>
@@ -283,24 +261,24 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                 <AnimatePresence>
                   {successMessage && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
+                      initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="p-3 rounded-lg bg-bull-500/10 border border-bull-500/20 flex items-center gap-2"
+                      exit={{ opacity: 0, y: -8 }}
+                      className="flex items-center gap-2 p-3 rounded-xl bg-success-subtle border border-success/20"
                     >
-                      <CheckCircle className="h-4 w-4 text-bull-400" />
-                      <p className="text-sm text-bull-400">{successMessage}</p>
+                      <CheckCircle className="h-4 w-4 text-success" />
+                      <span className="text-sm text-success">{successMessage}</span>
                     </motion.div>
                   )}
                   {actionError && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
+                      initial={{ opacity: 0, y: -8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="p-3 rounded-lg bg-bear-500/10 border border-bear-500/20 flex items-center gap-2"
+                      exit={{ opacity: 0, y: -8 }}
+                      className="flex items-center gap-2 p-3 rounded-xl bg-danger-subtle border border-danger/20"
                     >
-                      <AlertCircle className="h-4 w-4 text-bear-400" />
-                      <p className="text-sm text-bear-400">{actionError}</p>
+                      <AlertCircle className="h-4 w-4 text-danger" />
+                      <span className="text-sm text-danger">{actionError}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -309,21 +287,18 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                 <button
                   onClick={handleSubmit}
                   disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > availableBalance || isSubmitting}
-                  className={cn(
-                    "w-full h-12 rounded-xl font-display font-semibold",
-                    "bg-gradient-to-r from-cipher-500 to-cipher-400 text-dusk-950",
-                    "hover:shadow-glow transition-all duration-200",
-                    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
-                  )}
+                  className="w-full h-12 rounded-xl font-display font-semibold text-sm btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="h-4 w-4 rounded-full border-2 border-dusk-950 border-t-transparent animate-spin" />
-                      Processing...
-                    </span>
-                  ) : (
-                    `${mode === "deposit" ? "Deposit" : "Withdraw"} ${symbol}`
-                  )}
+                  <span className="relative z-10">
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                        Processing...
+                      </span>
+                    ) : (
+                      `${mode === "deposit" ? "Deposit" : "Withdraw"} ${symbol}`
+                    )}
+                  </span>
                 </button>
               </div>
             </div>
