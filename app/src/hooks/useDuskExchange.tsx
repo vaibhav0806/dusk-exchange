@@ -79,13 +79,13 @@ const DEVNET_SOL_MINT = new PublicKey("So111111111111111111111111111111111111111
 const DEVNET_USDC_MINT = new PublicKey("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"); // Devnet USDC
 
 // Program ID
-const DUSK_PROGRAM_ID = new PublicKey("7LyfNf3Q7weRFCA316BepiMGWkKVY5aE4xYPrNzSFTRQ");
+const DUSK_PROGRAM_ID = new PublicKey("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 interface DuskExchangeProviderProps {
   children: ReactNode;
   marketId?: number;
 }
-
+  
 export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
   children,
   marketId = 1,
@@ -233,12 +233,12 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
       await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Update local state optimistically
-      setDepositedBalances(prev => ({
+      setDepositedBalances((prev: { base: number; quote: number }) => ({
         ...prev,
         [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] + amount,
       }));
 
-      setWalletBalances(prev => ({
+      setWalletBalances((prev: { base: number; quote: number }) => ({
         ...prev,
         [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] - amount,
       }));
@@ -267,12 +267,12 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
 
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      setDepositedBalances(prev => ({
+      setDepositedBalances((prev: { base: number; quote: number }) => ({
         ...prev,
         [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] - amount,
       }));
 
-      setWalletBalances(prev => ({
+      setWalletBalances((prev: { base: number; quote: number }) => ({
         ...prev,
         [isBase ? "base" : "quote"]: prev[isBase ? "base" : "quote"] + amount,
       }));
@@ -317,17 +317,17 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
         timestamp: Date.now(),
       };
 
-      setUserOrders(prev => [newOrder, ...prev]);
+      setUserOrders((prev: Order[]) => [newOrder, ...prev]);
 
       // Lock funds
       if (side === "buy") {
         const lockAmount = price * amount;
-        setDepositedBalances(prev => ({
+        setDepositedBalances((prev: { base: number; quote: number }) => ({
           ...prev,
           quote: prev.quote - lockAmount,
         }));
       } else {
-        setDepositedBalances(prev => ({
+        setDepositedBalances((prev: { base: number; quote: number }) => ({
           ...prev,
           base: prev.base - amount,
         }));
@@ -358,25 +358,25 @@ export const DuskExchangeProvider: FC<DuskExchangeProviderProps> = ({
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Find and update the order
-      const order = userOrders.find(o => o.id === orderId);
+      const order = userOrders.find((o: Order) => o.id === orderId);
       if (order) {
         // Unlock funds
         if (order.side === "buy") {
           const unlockAmount = order.price * (order.amount - order.filled);
-          setDepositedBalances(prev => ({
+          setDepositedBalances((prev: { base: number; quote: number }) => ({
             ...prev,
             quote: prev.quote + unlockAmount,
           }));
         } else {
           const unlockAmount = order.amount - order.filled;
-          setDepositedBalances(prev => ({
+          setDepositedBalances((prev: { base: number; quote: number }) => ({
             ...prev,
             base: prev.base + unlockAmount,
           }));
         }
       }
 
-      setUserOrders(prev => prev.filter(o => o.id !== orderId));
+      setUserOrders((prev: Order[]) => prev.filter((o: Order) => o.id !== orderId));
 
       return "mock-cancel-signature";
     } catch (err) {

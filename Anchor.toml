@@ -1,6 +1,5 @@
 [toolchain]
 anchor_version = "0.32.0"
-solana_version = "3.0.13"
 
 [features]
 resolution = true
@@ -29,7 +28,7 @@ upgradeable = false
 
 [[test.genesis]]
 address = "F3G6Q9tRicyznCqcZLydJ6RxkwDSBeHWM458J7V6aeyk"
-program = "/Users/vaibhav/Documents/projects/dusk-exchange/artifacts/arcium_program_0.5.4.so"
+program = "artifacts/arcium_program_0.5.4.so"
 
 [[test.genesis]]
 address = "L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95"

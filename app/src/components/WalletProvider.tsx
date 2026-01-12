@@ -22,7 +22,7 @@ interface Props {
 
 export const WalletProvider: FC<Props> = ({ children }) => {
   // Use devnet for development
-  const endpoint = useMemo(() => clusterApiUrl("devnet"), []);
+  const endpoint = useMemo(() => "http://127.0.0.1:8899", []);
 
   const wallets = useMemo(
     () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],

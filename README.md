@@ -179,7 +179,9 @@ solana-test-validator --reset \
   --bpf-program L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95 artifacts/lighthouse.so
 
 # Terminal 2: Run tests
-ANCHOR_PROVIDER_URL=http://127.0.0.1:8899 yarn test
+export ANCHOR_PROVIDER_URL=http://127.0.0.1:8899
+export ANCHOR_WALLET=~/.config/solana/id.json
+TS_NODE_PROJECT=./tsconfig.json ./node_modules/.bin/ts-mocha -p ./tsconfig.json -t 1000000 tests/dusk_exchange.ts
 
 # Terminal 3: Start frontend
 cd app && npm run dev
@@ -352,6 +354,8 @@ if (result.matched) {
 - [ ] Mainnet deployment
 
 ## Troubleshooting
+
+> 📖 **For a comprehensive setup guide with all common issues and solutions, see [SETUP.md](./SETUP.md)**
 
 ### Build Error: `blake3 requires edition2024`
 

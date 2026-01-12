@@ -2,7 +2,7 @@ import { PublicKey } from "@solana/web3.js";
 
 // Program IDs
 export const DUSK_EXCHANGE_PROGRAM_ID = new PublicKey(
-  "7LyfNf3Q7weRFCA316BepiMGWkKVY5aE4xYPrNzSFTRQ"
+  "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
 );
 
 export const ARCIUM_PROGRAM_ID = new PublicKey(

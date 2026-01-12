@@ -8,7 +8,7 @@ pub mod events;
 
 use instructions::*;
 
-declare_id!("7LyfNf3Q7weRFCA316BepiMGWkKVY5aE4xYPrNzSFTRQ");
+declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
 /// Computation definition offsets for Arcium MPC operations
 /// Each encrypted function needs a unique offset
