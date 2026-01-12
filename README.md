@@ -153,8 +153,14 @@ cd dusk-exchange
 # Install dependencies
 yarn install
 
-# Build Solana program (requires platform-tools v1.52+)
-cargo build-sbf --manifest-path programs/dusk_exchange/Cargo.toml --tools-version v1.52
+# Build Solana program
+# NOTE: Must use --tools-version v1.52 due to blake3 crate requiring edition2024
+# The default platform-tools (v1.51) uses rustc 1.84 which doesn't support it
+cargo-build-sbf --tools-version v1.52 --manifest-path programs/dusk_exchange/Cargo.toml
+
+# Generate IDL and TypeScript types
+anchor idl build -p dusk_exchange --out target/idl/dusk_exchange.json
+anchor idl build -p dusk_exchange --out-ts target/types/dusk_exchange.ts
 
 # Build TypeScript SDK
 cd client && npm install && npm run build
@@ -344,6 +350,36 @@ if (result.matched) {
 - [ ] Full Arcium testnet deployment
 - [ ] Demo video
 - [ ] Mainnet deployment
+
+## Troubleshooting
+
+### Build Error: `blake3 requires edition2024`
+
+```
+error: failed to download `blake3 v1.8.3`
+Caused by: feature `edition2024` is required
+```
+
+**Cause**: The default `platform-tools` (v1.51) bundles `rustc 1.84` which doesn't support Rust edition 2024.
+
+**Solution**: Use `--tools-version v1.52` when building:
+```bash
+cargo-build-sbf --tools-version v1.52 --manifest-path programs/dusk_exchange/Cargo.toml
+```
+
+**Note**: `anchor build` doesn't support specifying tools version directly. Use `cargo-build-sbf` for the program and `anchor idl build` for IDL generation.
+
+### Anchor Build Fails but cargo-build-sbf Works
+
+This is expected. Use this workflow:
+```bash
+# Build program
+cargo-build-sbf --tools-version v1.52 --manifest-path programs/dusk_exchange/Cargo.toml
+
+# Generate IDL (this works without full anchor build)
+anchor idl build -p dusk_exchange --out target/idl/dusk_exchange.json
+anchor idl build -p dusk_exchange --out-ts target/types/dusk_exchange.ts
+```
 
 ## Resources
 
