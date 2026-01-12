@@ -13,16 +13,12 @@ import {
   DepositWithdrawModal,
 } from "@/components";
 import { cn } from "@/lib/utils";
+import { useUserPosition } from "@/hooks";
 
 export default function TradingPage() {
   const { connected } = useWallet();
+  const { walletBalances, depositedBalances } = useUserPosition();
   const [isDepositModalOpen, setIsDepositModalOpen] = useState(false);
-
-  // Mock balances for demo
-  const baseBalance = 45.5;
-  const quoteBalance = 5000;
-  const baseDeposited = 10.5;
-  const quoteDeposited = 1500;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -41,11 +37,6 @@ export default function TradingPage() {
             <OrderForm
               baseSymbol="SOL"
               quoteSymbol="USDC"
-              baseBalance={baseDeposited}
-              quoteBalance={quoteDeposited}
-              onSubmit={(order) => {
-                console.log("Order submitted:", order);
-              }}
             />
 
             {/* Deposit/Withdraw Button */}
@@ -72,11 +63,7 @@ export default function TradingPage() {
 
           {/* Right Column - Orders & History */}
           <div className="lg:col-span-4 space-y-6">
-            <OpenOrders
-              onCancel={(orderId) => {
-                console.log("Cancel order:", orderId);
-              }}
-            />
+            <OpenOrders />
             <TradeHistory />
           </div>
         </div>
@@ -155,13 +142,6 @@ export default function TradingPage() {
       <DepositWithdrawModal
         isOpen={isDepositModalOpen}
         onClose={() => setIsDepositModalOpen(false)}
-        baseBalance={baseBalance}
-        quoteBalance={quoteBalance}
-        baseDeposited={baseDeposited}
-        quoteDeposited={quoteDeposited}
-        onSubmit={(mode, amount, isBase) => {
-          console.log(`${mode}:`, amount, isBase ? "SOL" : "USDC");
-        }}
       />
     </div>
   );

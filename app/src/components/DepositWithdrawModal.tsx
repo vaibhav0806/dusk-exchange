@@ -1,39 +1,40 @@
 "use client";
 
 import { FC, useState } from "react";
-import { X, ArrowDownToLine, ArrowUpFromLine, Wallet } from "lucide-react";
+import { X, ArrowDownToLine, ArrowUpFromLine, Wallet, CheckCircle, AlertCircle } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useDeposit, useUserPosition } from "@/hooks";
 
 type ModalMode = "deposit" | "withdraw";
 
 interface DepositWithdrawModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit?: (mode: ModalMode, amount: number, isBase: boolean) => void;
   baseSymbol?: string;
   quoteSymbol?: string;
-  baseBalance?: number;
-  quoteBalance?: number;
-  baseDeposited?: number;
-  quoteDeposited?: number;
 }
 
 export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
   isOpen,
   onClose,
-  onSubmit,
   baseSymbol = "SOL",
   quoteSymbol = "USDC",
-  baseBalance = 45.5,
-  quoteBalance = 5000,
-  baseDeposited = 10.5,
-  quoteDeposited = 1500,
 }) => {
+  const { deposit, withdraw, isLoading: isActionLoading, error: actionError } = useDeposit();
+  const { walletBalances, depositedBalances } = useUserPosition();
+
   const [mode, setMode] = useState<ModalMode>("deposit");
   const [selectedToken, setSelectedToken] = useState<"base" | "quote">("base");
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Use real balances from hooks
+  const baseBalance = walletBalances.base;
+  const quoteBalance = walletBalances.quote;
+  const baseDeposited = depositedBalances.base;
+  const quoteDeposited = depositedBalances.quote;
 
   const isBase = selectedToken === "base";
   const symbol = isBase ? baseSymbol : quoteSymbol;
@@ -44,10 +45,28 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
   const handleSubmit = async () => {
     if (!amount) return;
     setIsSubmitting(true);
+    setSuccessMessage(null);
+
     try {
-      await onSubmit?.(mode, parseFloat(amount), isBase);
+      const amountNum = parseFloat(amount);
+      if (mode === "deposit") {
+        await deposit(amountNum, isBase);
+      } else {
+        await withdraw(amountNum, isBase);
+      }
+
+      setSuccessMessage(
+        `Successfully ${mode === "deposit" ? "deposited" : "withdrew"} ${amountNum} ${symbol}!`
+      );
       setAmount("");
-      onClose();
+
+      // Close modal after short delay
+      setTimeout(() => {
+        setSuccessMessage(null);
+        onClose();
+      }, 1500);
+    } catch (err) {
+      console.error(`${mode} failed:`, err);
     } finally {
       setIsSubmitting(false);
     }
@@ -259,6 +278,32 @@ export const DepositWithdrawModal: FC<DepositWithdrawModalProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* Success/Error Messages */}
+                <AnimatePresence>
+                  {successMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="p-3 rounded-lg bg-bull-500/10 border border-bull-500/20 flex items-center gap-2"
+                    >
+                      <CheckCircle className="h-4 w-4 text-bull-400" />
+                      <p className="text-sm text-bull-400">{successMessage}</p>
+                    </motion.div>
+                  )}
+                  {actionError && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="p-3 rounded-lg bg-bear-500/10 border border-bear-500/20 flex items-center gap-2"
+                    >
+                      <AlertCircle className="h-4 w-4 text-bear-400" />
+                      <p className="text-sm text-bear-400">{actionError}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Submit Button */}
                 <button

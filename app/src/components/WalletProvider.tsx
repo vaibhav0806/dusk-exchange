@@ -11,6 +11,7 @@ import {
   SolflareWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { clusterApiUrl } from "@solana/web3.js";
+import { DuskExchangeProvider } from "@/hooks";
 
 // Import wallet adapter styles
 import "@solana/wallet-adapter-react-ui/styles.css";
@@ -31,7 +32,11 @@ export const WalletProvider: FC<Props> = ({ children }) => {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <SolanaWalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider>{children}</WalletModalProvider>
+        <WalletModalProvider>
+          <DuskExchangeProvider marketId={1}>
+            {children}
+          </DuskExchangeProvider>
+        </WalletModalProvider>
       </SolanaWalletProvider>
     </ConnectionProvider>
   );

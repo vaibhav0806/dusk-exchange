@@ -2,36 +2,35 @@
 
 import { FC, useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Lock, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { Lock, TrendingUp, TrendingDown, AlertCircle, CheckCircle } from "lucide-react";
 import { cn, formatNumber } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useOrders, useUserPosition } from "@/hooks";
 
 type OrderSide = "buy" | "sell";
 
 interface OrderFormProps {
   baseSymbol?: string;
   quoteSymbol?: string;
-  baseBalance?: number;
-  quoteBalance?: number;
-  onSubmit?: (order: {
-    side: OrderSide;
-    price: number;
-    amount: number;
-  }) => void;
 }
 
 export const OrderForm: FC<OrderFormProps> = ({
   baseSymbol = "SOL",
   quoteSymbol = "USDC",
-  baseBalance = 0,
-  quoteBalance = 0,
-  onSubmit,
 }) => {
   const { connected } = useWallet();
+  const { placeOrder, isLoading: isOrderLoading, error: orderError } = useOrders();
+  const { depositedBalances } = useUserPosition();
+
   const [side, setSide] = useState<OrderSide>("buy");
   const [price, setPrice] = useState("");
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Use deposited balances for trading
+  const baseBalance = depositedBalances.base;
+  const quoteBalance = depositedBalances.quote;
 
   const total = parseFloat(price || "0") * parseFloat(amount || "0");
   const isBuy = side === "buy";
@@ -40,12 +39,18 @@ export const OrderForm: FC<OrderFormProps> = ({
     if (!price || !amount || !connected) return;
 
     setIsSubmitting(true);
+    setSuccessMessage(null);
+
     try {
-      await onSubmit?.({
-        side,
-        price: parseFloat(price),
-        amount: parseFloat(amount),
-      });
+      await placeOrder(side, parseFloat(price), parseFloat(amount));
+      setSuccessMessage(`${isBuy ? "Buy" : "Sell"} order placed successfully!`);
+      setPrice("");
+      setAmount("");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      console.error("Order failed:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -240,6 +245,32 @@ export const OrderForm: FC<OrderFormProps> = ({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Success/Error Messages */}
+      <AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mt-4 p-3 rounded-lg bg-bull-500/10 border border-bull-500/20 flex items-center gap-2"
+          >
+            <CheckCircle className="h-4 w-4 text-bull-400" />
+            <p className="text-sm text-bull-400">{successMessage}</p>
+          </motion.div>
+        )}
+        {orderError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mt-4 p-3 rounded-lg bg-bear-500/10 border border-bear-500/20 flex items-center gap-2"
+          >
+            <AlertCircle className="h-4 w-4 text-bear-400" />
+            <p className="text-sm text-bear-400">{orderError}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Privacy Notice */}
       <div className="mt-4 p-3 rounded-lg bg-cipher-glow/50 border border-cipher-500/10">
